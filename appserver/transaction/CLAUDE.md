@@ -30,6 +30,7 @@ mvn -DskipTests clean package -f appserver/transaction/jts/pom.xml
 transaction/
 ├── jta/                    # JTA transaction manager
 ├── jts/                    # JTS (CORBA transactions)
+├── jta-xa/                 # XA resource delegation
 ├── internal-api/           # Internal transaction APIs
 ├── jta-l10n/               # JTA localization
 ├── jts-l10n/               # JTS localization
