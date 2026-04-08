@@ -81,7 +81,7 @@
         <!-- Java API for XML Registries Resource Adapter -->
         <jaxr.version>JAXR_RA_20091012</jaxr.version>
 
-        <nimbus-jose-jwt.version>10.8</nimbus-jose-jwt.version>
+        <nimbus-jose-jwt.version>10.9</nimbus-jose-jwt.version>
         <accessors-smart.version>2.6.0</accessors-smart.version>
         <json-smart.version>2.6.0</json-smart.version>
         <reactor-core.version>3.8.4</reactor-core.version>
@@ -554,7 +554,7 @@
             <dependency>
                 <groupId>org.bsc.maven</groupId>
                 <artifactId>maven-processor-plugin</artifactId>
-                <version>5.1-jdk8</version>
+                <version>5.2-jdk8</version>
             </dependency>
             <!-- contrary to what BOM says, this processor is packaged with the server, and therefore needs compile scope -->
             <dependency>
