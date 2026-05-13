@@ -419,11 +419,23 @@ pipeline {
                         -Dfailsafe.rerunFailingTestsCount=2 \
                         -f appserver/tests/functional/embeddedtest """
 
-                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Running asadmin tests  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
                         setupDomain()
+
+                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Running deployment groups tests  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
+                        sh """export PAYARA_HOME=${pwd()}/payara7 && pytest appserver/tests/functional/deployment-groups/test_deployment_group.py -v -s"""
+                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Ran deployment groups tests  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
+
+                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Running asadmin tests  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
                         sh """python3 appserver/tests/functional/asadmin/run_all_tests.py \
                         --asadmin ${pwd()}/payara7/bin/asadmin"""
-                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Ran test  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
+                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Ran asadmin test  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
+
+                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Running payara-application.xml tests  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
+                        sh """mvn -V -B -ff clean verify --strict-checksums -Ppayara-server-remote \
+                                -Dsurefire.rerunFailingTestsCount=2 \
+                                -Dfailsafe.rerunFailingTestsCount=2 \
+                                -f appserver/tests/functional/payara-application-xml """
+                        echo '*#*#*#*#*#*#*#*#*#*#*#*#  Ran payara-application.xml tests  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#'
                     }
                     post {
                         always {
