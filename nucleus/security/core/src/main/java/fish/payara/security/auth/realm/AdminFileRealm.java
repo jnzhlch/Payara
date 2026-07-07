@@ -77,11 +77,13 @@ public class AdminFileRealm extends FileRealm {
         String dir = (parent != null) ? parent.getAbsolutePath() : ".";
         File stateFile = new File(str("lockstateFile", dir + "/admin-keyfile.lockstate"));
         File keyFile = new File(str("integrityKeyFile", dir + "/admin-keyfile.key"));
+        boolean firstHardeningEnable = !keyFile.exists();
         byte[] hmacKey = HmacStore.loadOrCreateKey(keyFile);
+        File signal = firstHardeningEnable ? null : keyFile;
         LockStateManager.LockoutConfig cfg =
                 new LockStateManager.LockoutConfig(enabled, maxAttempts, durationMs, exempt);
         LockStateManager locks = new LockStateManager(stateFile, hmacKey, cfg,
-                System::currentTimeMillis, new File(file));
+                System::currentTimeMillis, signal);
         return new AdminFileRealmStorageManager(file, locks);
     }
 

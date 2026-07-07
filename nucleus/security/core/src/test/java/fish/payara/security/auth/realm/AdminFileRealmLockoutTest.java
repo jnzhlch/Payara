@@ -146,6 +146,27 @@ public class AdminFileRealmLockoutTest {
     }
 
     @Test
+    public void firstHardeningEnableWithExistingKeyfileDoesNotFailClosed() throws Exception {
+        // Simulates real domain: admin-keyfile already exists on disk (pre-populated),
+        // but lockstate and HMAC key do not (first hardening enable).
+        // Old code: signal=new File(file) → exists → ISE on missing lockstate → server won't start.
+        // Fixed code: signal=HMAC key file → absent → no ISE → normal first-use init.
+        File keyfile = tmp.newFile("admin-keyfile"); // empty, already on disk
+        File stateFile = newTempFile("lockstate-first");
+        File keyFile = newTempFile("key-first");
+        Properties props = new Properties();
+        props.setProperty("file", keyfile.getAbsolutePath());
+        props.setProperty("jaas-context", "fileRealm");
+        props.setProperty("lockstateFile", stateFile.getAbsolutePath());
+        props.setProperty("integrityKeyFile", keyFile.getAbsolutePath());
+        AdminFileRealm r = new AdminFileRealm();
+        r.init(props); // must NOT throw ISE
+        r.addUser("alice", "secret".toCharArray(), new String[]{"g"});
+        r.persist();
+        assertNotNull(r.authenticate("alice", "secret".toCharArray()));
+    }
+
+    @Test
     public void unlockFileUserUnlocksLockedAccount() throws Exception {
         AdminFileRealm r = realmWithLockout();
         assertNull(r.authenticate("alice", "wrong".toCharArray()));
