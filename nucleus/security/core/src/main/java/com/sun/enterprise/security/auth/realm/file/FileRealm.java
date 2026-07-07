@@ -38,6 +38,7 @@
  * holder.
  */
 // Portions Copyright [2018-2019] [Payara Foundation and/or its affiliates]
+// Portions Copyright [2026] Payara Foundation and/or its affiliates
 package com.sun.enterprise.security.auth.realm.file;
 
 import static com.sun.enterprise.security.common.Util.isEmbeddedServer;
@@ -91,7 +92,7 @@ import com.sun.enterprise.security.auth.realm.User;
  * @author Shing Wai Chan
  */
 @Service
-public final class FileRealm extends BaseRealm {
+public class FileRealm extends BaseRealm {
 
     /** Descriptive string of the authentication type of this realm. */
     public static final String AUTH_TYPE = "filepassword";
@@ -110,6 +111,24 @@ public final class FileRealm extends BaseRealm {
     @Override
     public String getAuthType() {
         return AUTH_TYPE;
+    }
+
+    /**
+     * Factory hook for the storage manager. Overridden by admin-realm subclasses
+     * to return a hardening storage manager. Default returns the plain POJO.
+     *
+     * @throws IOException if the keyfile cannot be read.
+     */
+    protected FileRealmStorageManager createStorageManager(String file) throws IOException {
+        return new FileRealmStorageManager(file);
+    }
+
+    /**
+     * Accessor exposing the storage manager to subclasses (e.g. AdminFileRealm
+     * forwarding unlock to AdminFileRealmStorageManager). Field stays private.
+     */
+    protected FileRealmStorageManager storageManager() {
+        return fileRealmStorageManager;
     }
 
     /**
@@ -186,7 +205,7 @@ public final class FileRealm extends BaseRealm {
                 file = writeConfigFileToTempDir(file).getAbsolutePath();
             }
 
-            fileRealmStorageManager = new FileRealmStorageManager(file);
+            fileRealmStorageManager = createStorageManager(file);
         } catch (IOException ioe) {
             throw new BadRealmException(sm.getString("filerealm.noaccess", ioe.toString()));
         }
