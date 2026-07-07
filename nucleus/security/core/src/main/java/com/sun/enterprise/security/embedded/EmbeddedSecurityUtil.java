@@ -60,6 +60,7 @@ import javax.xml.stream.XMLStreamReader;
 import org.glassfish.api.admin.RuntimeType;
 import org.glassfish.api.admin.ServerEnvironment;
 import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.security.common.RealmClassNames;
 import org.glassfish.server.ServerEnvironmentImpl;
 
 import org.jvnet.hk2.annotations.Service;
@@ -162,7 +163,7 @@ public class EmbeddedSecurityUtil implements EmbeddedSecurity {
         List<AuthRealm> authRealms = securityService.getAuthRealm();
         for (AuthRealm authRealm : authRealms) {
             String className = authRealm.getClassname();
-            if ("com.sun.enterprise.security.auth.realm.file.FileRealm".equals(className)) {
+            if (RealmClassNames.isFileRealm(className)) {
                 List<Property> props = authRealm.getProperty();
                 for (Property prop : props) {
                     if ("file".equals(prop.getName())) {

@@ -76,6 +76,7 @@ import com.sun.enterprise.security.auth.realm.BadRealmException;
 import com.sun.enterprise.security.auth.realm.RealmsManager;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
 import com.sun.enterprise.util.LocalStringManagerImpl;
+import org.glassfish.security.common.RealmClassNames;
 import com.sun.enterprise.util.SystemPropertyConstants;
 
 /**
@@ -161,7 +162,7 @@ public class DeleteFileUser implements /* UndoableCommand */ AdminCommand, Admin
         String fileRealmClassName = fileAuthRealm.getClassname();
 
         // Report error if provided impl is not the one expected
-        if (fileRealmClassName != null && !fileRealmClassName.equals("com.sun.enterprise.security.auth.realm.file.FileRealm")) {
+        if (!RealmClassNames.isFileRealm(fileRealmClassName)) {
             report.setMessage(localStrings.getLocalString("delete.file.user.realmnotsupported",
                     "Configured file realm {0} is not supported.", fileRealmClassName));
             report.setActionExitCode(ActionReport.ExitCode.FAILURE);

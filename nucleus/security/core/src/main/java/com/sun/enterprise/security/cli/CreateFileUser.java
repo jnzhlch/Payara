@@ -62,6 +62,7 @@ import com.sun.enterprise.config.serverbeans.Domain;
 import com.sun.enterprise.config.serverbeans.SecureAdmin;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
 import com.sun.enterprise.security.auth.realm.Realm;
+import org.glassfish.security.common.RealmClassNames;
 import com.sun.enterprise.config.serverbeans.SecurityService;
 import com.sun.enterprise.security.auth.realm.BadRealmException;
 import com.sun.enterprise.security.auth.realm.NoSuchRealmException;
@@ -182,7 +183,7 @@ public class CreateFileUser implements AdminCommand, AdminCommandSecurity.Preaut
         String fileRealmClassName = fileAuthRealm.getClassname();
 
         // Report error if provided impl is not the one expected
-        if (fileRealmClassName != null && !fileRealmClassName.equals("com.sun.enterprise.security.auth.realm.file.FileRealm")) {
+        if (!RealmClassNames.isFileRealm(fileRealmClassName)) {
             report.setMessage(localStrings.getLocalString("create.file.user.realmnotsupported",
                     "Configured file realm {0} is not supported.", fileRealmClassName));
             report.setActionExitCode(ActionReport.ExitCode.FAILURE);

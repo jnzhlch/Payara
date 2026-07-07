@@ -55,6 +55,7 @@ import java.util.Properties;
 
 import org.glassfish.internal.api.RelativePathResolver;
 import org.glassfish.security.common.FileRealmStorageManager;
+import org.glassfish.security.common.RealmClassNames;
 import org.jvnet.hk2.annotations.Service;
 
 import com.sun.enterprise.config.serverbeans.AuthRealm;
@@ -248,7 +249,7 @@ public class FileRealm extends BaseRealm {
             String fileRealmClassName = authRealm.getClassname();
 
             // skip it if it's not a file realm
-            if (fileRealmClassName == null || !fileRealmClassName.equals(FileRealm.class.getName())) {
+            if (!RealmClassNames.isFileRealm(fileRealmClassName)) {
                 continue;
             }
 

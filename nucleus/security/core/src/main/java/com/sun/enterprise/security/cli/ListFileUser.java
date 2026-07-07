@@ -63,6 +63,7 @@ import com.sun.enterprise.config.serverbeans.AuthRealm;
 import com.sun.enterprise.config.serverbeans.Domain;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
 import com.sun.enterprise.security.auth.realm.BadRealmException;
+import org.glassfish.security.common.RealmClassNames;
 import com.sun.enterprise.security.auth.realm.NoSuchRealmException;
 import com.sun.enterprise.config.serverbeans.SecurityService;
 import com.sun.enterprise.security.auth.realm.RealmsManager;
@@ -169,9 +170,7 @@ public class ListFileUser implements AdminCommand, AdminCommandSecurity.Preautho
         String fileRealmClassName = fileAuthRealm.getClassname();
         
         // Report error if provided impl is not the one expected
-        if (fileRealmClassName != null && 
-            !fileRealmClassName.equals(
-                "com.sun.enterprise.security.auth.realm.file.FileRealm")) {
+        if (!RealmClassNames.isFileRealm(fileRealmClassName)) {
             report.setMessage(
                 localStrings.getLocalString(
                     "list.file.user.realmnotsupported",

@@ -48,6 +48,7 @@ import com.sun.enterprise.security.auth.realm.NoSuchUserException;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
 import com.sun.enterprise.security.auth.realm.file.FileRealmUser;
 import com.sun.enterprise.security.ssl.SSLUtils;
+import org.glassfish.security.common.RealmClassNames;
 import com.sun.enterprise.security.store.DomainScopedPasswordAliasStore;
 import java.io.IOException;
 import java.security.KeyStore;
@@ -180,7 +181,7 @@ public class SecureAdminHelperImpl implements SecureAdminHelper {
     }
     private FileRealm adminRealm() throws BadRealmException, NoSuchRealmException {
         final AuthRealm ar = as.getAssociatedAuthRealm();
-        if (FileRealm.class.getName().equals(ar.getClassname())) {
+        if (RealmClassNames.isFileRealm(ar.getClassname())) {
             String adminKeyFilePath = ar.getPropertyValue("file");
             FileRealm fr = new FileRealm(adminKeyFilePath);
             return fr;

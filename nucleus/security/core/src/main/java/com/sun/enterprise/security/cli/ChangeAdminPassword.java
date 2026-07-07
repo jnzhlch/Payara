@@ -61,6 +61,7 @@ import com.sun.enterprise.config.serverbeans.Domain;
 import com.sun.enterprise.config.serverbeans.SecureAdmin;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
 import com.sun.enterprise.security.auth.realm.NoSuchRealmException;
+import org.glassfish.security.common.RealmClassNames;
 import org.jvnet.hk2.config.types.Property;
 import com.sun.enterprise.config.serverbeans.SecurityService;
 import com.sun.enterprise.security.auth.realm.RealmsManager;
@@ -170,9 +171,7 @@ public class ChangeAdminPassword implements AdminCommand, AdminCommandSecurity.P
         String fileRealmClassName = fileAuthRealm.getClassname();
         
         // Report error if provided impl is not the one expected
-        if (fileRealmClassName != null && 
-            !fileRealmClassName.equals(
-                "com.sun.enterprise.security.auth.realm.file.FileRealm")) {
+        if (!RealmClassNames.isFileRealm(fileRealmClassName)) {
             report.setMessage(
                 localStrings.getLocalString(
                     "change.admin.password.adminrealmnotsupported",

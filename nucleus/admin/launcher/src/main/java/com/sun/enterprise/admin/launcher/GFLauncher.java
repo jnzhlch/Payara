@@ -198,7 +198,7 @@ public abstract class GFLauncher {
         if (realmprops != null) {
             String classname = realmprops.get("classname");
             String keyfile = realmprops.get("file");
-            if ("com.sun.enterprise.security.auth.realm.file.FileRealm".equals(classname) && keyfile != null) {
+            if (keyfile != null && org.glassfish.security.common.RealmClassNames.isFileRealm(classname)) {
                 adminFileRealmKeyFile = keyfile;
             }
         }
