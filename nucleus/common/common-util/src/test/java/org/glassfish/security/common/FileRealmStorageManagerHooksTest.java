@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -71,6 +72,11 @@ public class FileRealmStorageManagerHooksTest {
         Files.writeString(keyfile.toPath(), "# comment\n");
     }
 
+    @After
+    public void teardown() {
+        Recording.HOOK_CALLS.remove();
+    }
+
     @Test
     public void unknownUserTriggersUserNotFoundHookAndReturnsNull() throws IOException {
         Recording r = Recording.create(keyfile.getAbsolutePath()); // fresh load -> beforeLoad
@@ -100,5 +106,39 @@ public class FileRealmStorageManagerHooksTest {
         base.addUser("bob", "password123".toCharArray(), new String[]{"g"});
         base.persist();          // afterPersist no-op
         assertNull(base.authenticate("ghost", "pw".toCharArray())); // onAuthFailure no-op
+    }
+
+    @Test
+    public void wrongPasswordAndCorrectPasswordHooks() throws Exception {
+        Recording r = Recording.create(keyfile.getAbsolutePath());
+        r.addUser("alice", "password123".toCharArray(), new String[]{"g"});
+
+        // wrong password → WRONG_PASSWORD hook
+        assertNull(r.authenticate("alice", "wrongpw".toCharArray()));
+        assertTrue(r.calls.toString(), r.calls.contains("fail:alice:WRONG_PASSWORD"));
+
+        // correct password → onAuthSuccess hook
+        String[] groups = r.authenticate("alice", "password123".toCharArray());
+        assertNotNull(groups);
+        assertTrue(r.calls.toString(), r.calls.contains("success:alice"));
+    }
+
+    @Test
+    public void corruptAlgoTriggersSshaErrorHook() throws Exception {
+        Recording r = Recording.create(keyfile.getAbsolutePath());
+        r.addUser("dave", "password123".toCharArray(), new String[]{"g"});
+        // Corrupt the algo so SSHA.compute → MessageDigest.getInstance throws
+        r.getUser("dave").setAlgo("BOGUS");
+        assertNull(r.authenticate("dave", "password123".toCharArray()));
+        assertTrue(r.calls.toString(), r.calls.contains("fail:dave:SSHA_ERROR"));
+    }
+
+    @Test
+    public void resetUserTriggersResetRequiredHook() throws IOException {
+        // Keyfile line: username;RESET;groups → decodeUser sets algo=RESET_KEY
+        Files.writeString(keyfile.toPath(), "carol;RESET;g\n");
+        Recording r = Recording.create(keyfile.getAbsolutePath());
+        assertNull(r.authenticate("carol", "pw".toCharArray()));
+        assertTrue(r.calls.toString(), r.calls.contains("fail:carol:RESET_REQUIRED"));
     }
 }
