@@ -39,6 +39,7 @@
  */
 // Portions Copyright [2019-2024] [Payara Foundation and/or its affiliates]
 // Portions Copyright 2024 Contributors to the Eclipse Foundation
+// Portions Copyright [2026] Payara Foundation and/or its affiliates
 // Payara Foundation and/or its affiliates elects to include this software in this distribution under the GPL Version 2 license
 
 package org.glassfish.security.common;
@@ -97,7 +98,19 @@ import com.sun.enterprise.util.i18n.StringManager;
  *
  * @author Tom Mueller
  */
-public final class FileRealmStorageManager {
+public class FileRealmStorageManager {
+
+    /** Hook fired on successful authentication. Default no-op; subclasses extend. */
+    protected void onAuthSuccess(String username) { }
+
+    /** Hook fired on a failed authentication attempt. Default no-op; subclasses extend. */
+    protected void onAuthFailure(String username, FailureReason reason) { }
+
+    /** Hook fired immediately before the keyfile is loaded. Default no-op. */
+    protected void beforeLoad() { }
+
+    /** Hook fired immediately after the keyfile is persisted. Default no-op. */
+    protected void afterPersist() { }
 
     // These are property names which should be in auth-realm in server.xml
     public static final String PARAM_KEYFILE = "file";
@@ -211,10 +224,12 @@ public final class FileRealmStorageManager {
         User user = userTable.get(username);
 
         if (user == null) {
+            onAuthFailure(username, FailureReason.USER_NOT_FOUND);
             return null;
         }
 
         if (RESET_KEY.equals(user.getAlgo())) {
+            onAuthFailure(username, FailureReason.RESET_REQUIRED);
             return null;
         }
 
@@ -225,13 +240,16 @@ public final class FileRealmStorageManager {
                     user.getAlgo());
 
         } catch (Exception e) {
+            onAuthFailure(username, FailureReason.SSHA_ERROR);
             return null;
         }
 
         if (!ok) {
+            onAuthFailure(username, FailureReason.WRONG_PASSWORD);
             return null;
         }
 
+        onAuthSuccess(username);
         return user.getGroups();
     }
 
@@ -379,6 +397,7 @@ public final class FileRealmStorageManager {
             } catch (Exception e) {
                 throw new IOException(sm.getString("filerealm.badwrite", e.toString()));
             }
+            afterPersist();
         }
     }
     
@@ -556,6 +575,7 @@ public final class FileRealmStorageManager {
      *
      */
     private void loadKeyFile() throws IOException {
+        beforeLoad();
         try (BufferedReader input = new BufferedReader(new FileReader(keyfile, StandardCharsets.UTF_8))) {
             while (input.ready()) {
                 String line = input.readLine();
