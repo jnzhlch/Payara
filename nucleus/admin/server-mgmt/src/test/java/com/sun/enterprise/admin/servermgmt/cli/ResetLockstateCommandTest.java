@@ -29,9 +29,9 @@
  */
 package com.sun.enterprise.admin.servermgmt.cli;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,11 +43,9 @@ import java.util.Properties;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-
-import com.sun.enterprise.admin.servermgmt.cli.ResetLockstateCommand;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 /**
  * Tests the package-private core of ResetLockstateCommand --
@@ -63,8 +61,31 @@ public class ResetLockstateCommandTest {
 
     private static final String HMAC_ALGO = "HmacSHA256";
 
-    @Rule
-    public TemporaryFolder temp = new TemporaryFolder();
+    private File tempDir;
+
+    @BeforeMethod
+    public void setUp() throws IOException {
+        tempDir = Files.createTempDirectory("resetlock-test").toFile();
+    }
+
+    @AfterMethod
+    public void tearDown() {
+        if (tempDir != null) {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    private static void deleteRecursively(File f) {
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null) {
+                for (File c : children) {
+                    deleteRecursively(c);
+                }
+            }
+        }
+        f.delete();
+    }
 
     @Test
     public void computeMac_producesHmacSHA256() throws Exception {
@@ -78,59 +99,57 @@ public class ResetLockstateCommandTest {
         Mac ref = Mac.getInstance(HMAC_ALGO);
         ref.init(new SecretKeySpec(key, HMAC_ALGO));
         byte[] expected = ref.doFinal(data);
-        assertArrayEquals("MAC must match independent HmacSHA256", expected, mac);
+        assertEquals(expected, mac, "MAC must match independent HmacSHA256");
     }
 
     @Test
     public void computeMac_deterministic() {
         byte[] key = new byte[32];
         byte[] data = "test".getBytes();
-        assertArrayEquals(
+        assertEquals(
                 ResetLockstateCommand.computeMac(key, data),
                 ResetLockstateCommand.computeMac(key, data));
     }
 
     @Test
     public void rebuildEmptyLockstate_replacesOldFiles() throws IOException {
-        File dir = temp.newFolder("lockstate-test");
         byte[] key = new byte[32];
         new SecureRandom().nextBytes(key);
 
         // Pre-existing lockstate with a user entry
-        File oldState = new File(dir, "admin-keyfile.lockstate");
+        File oldState = new File(tempDir, "admin-keyfile.lockstate");
         Files.writeString(oldState.toPath(), "someuser=3,9999999999999\n");
-        File oldMac = new File(dir, "admin-keyfile.lockstate.mac");
+        File oldMac = new File(tempDir, "admin-keyfile.lockstate.mac");
         Files.writeString(oldMac.toPath(), "garbage-mac");
 
         byte[] oldStateBytes = Files.readAllBytes(oldState.toPath());
 
-        ResetLockstateCommand.rebuildEmptyLockstate(dir, key);
+        ResetLockstateCommand.rebuildEmptyLockstate(tempDir, key);
 
         // New state must be different (no user entries)
         byte[] newStateBytes = Files.readAllBytes(oldState.toPath());
-        assertFalse("Lockstate content should have changed",
-                java.util.Arrays.equals(oldStateBytes, newStateBytes));
+        assertFalse(java.util.Arrays.equals(oldStateBytes, newStateBytes),
+                "Lockstate content should have changed");
 
         // New state must be empty Properties (no user entries)
         Properties p = new Properties();
         p.load(new StringReader(new String(newStateBytes)));
-        assertTrue("New lockstate should have no user entries",
-                p.stringPropertyNames().isEmpty());
+        assertTrue(p.stringPropertyNames().isEmpty(),
+                "New lockstate should have no user entries");
     }
 
     @Test
     public void rebuildEmptyLockstate_macVerifiesWithIndependentHmac() throws Exception {
-        File dir = temp.newFolder("lockstate-mac-test");
         byte[] key = new byte[32];
         new SecureRandom().nextBytes(key);
 
-        ResetLockstateCommand.rebuildEmptyLockstate(dir, key);
+        ResetLockstateCommand.rebuildEmptyLockstate(tempDir, key);
 
-        File stateFile = new File(dir, "admin-keyfile.lockstate");
-        File macFile = new File(dir, "admin-keyfile.lockstate.mac");
+        File stateFile = new File(tempDir, "admin-keyfile.lockstate");
+        File macFile = new File(tempDir, "admin-keyfile.lockstate.mac");
 
-        assertTrue("lockstate file must exist", stateFile.exists());
-        assertTrue("mac sidecar must exist", macFile.exists());
+        assertTrue(stateFile.exists(), "lockstate file must exist");
+        assertTrue(macFile.exists(), "mac sidecar must exist");
 
         byte[] stateBytes = Files.readAllBytes(stateFile.toPath());
         byte[] macBytes = Files.readAllBytes(macFile.toPath());
@@ -139,21 +158,20 @@ public class ResetLockstateCommandTest {
         Mac ref = Mac.getInstance(HMAC_ALGO);
         ref.init(new SecretKeySpec(key, HMAC_ALGO));
         byte[] expected = ref.doFinal(stateBytes);
-        assertArrayEquals("MAC sidecar must verify with independent HmacSHA256",
-                expected, macBytes);
+        assertEquals(expected, macBytes,
+                "MAC sidecar must verify with independent HmacSHA256");
     }
 
     @Test
     public void rebuildEmptyLockstate_createsFromScratch() throws IOException {
-        File dir = temp.newFolder("lockstate-nosc-ratch");
         byte[] key = new byte[32];
         new SecureRandom().nextBytes(key);
 
         // No pre-existing files
-        ResetLockstateCommand.rebuildEmptyLockstate(dir, key);
+        ResetLockstateCommand.rebuildEmptyLockstate(tempDir, key);
 
-        File stateFile = new File(dir, "admin-keyfile.lockstate");
-        File macFile = new File(dir, "admin-keyfile.lockstate.mac");
+        File stateFile = new File(tempDir, "admin-keyfile.lockstate");
+        File macFile = new File(tempDir, "admin-keyfile.lockstate.mac");
         assertTrue(stateFile.exists());
         assertTrue(macFile.exists());
         assertTrue(Files.size(stateFile.toPath()) > 0);

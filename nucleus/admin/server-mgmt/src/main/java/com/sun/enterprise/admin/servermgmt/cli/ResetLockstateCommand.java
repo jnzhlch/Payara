@@ -43,7 +43,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.util.Properties;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.crypto.Mac;
@@ -53,7 +52,6 @@ import com.sun.enterprise.admin.launcher.GFLauncher;
 import com.sun.enterprise.admin.launcher.GFLauncherException;
 import com.sun.enterprise.admin.launcher.GFLauncherFactory;
 import com.sun.enterprise.admin.launcher.GFLauncherInfo;
-import com.sun.enterprise.universal.i18n.LocalStringsImpl;
 import com.sun.enterprise.universal.xml.MiniXmlParserException;
 
 import org.glassfish.api.I18n;
@@ -85,9 +83,6 @@ public class ResetLockstateCommand extends LocalDomainCommand {
     private static final String HMAC_ALGO = "HmacSHA256";
     private static final String KEYFILE_NAME = "admin-keyfile.key";
     private static final String STATEFILE_NAME = "admin-keyfile.lockstate";
-
-    private static final LocalStringsImpl STRINGS =
-            new LocalStringsImpl(ResetLockstateCommand.class);
 
     @Param(name = "domain_name", optional = true, primary = true)
     private String userArgDomainName;
