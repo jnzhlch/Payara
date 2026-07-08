@@ -264,4 +264,57 @@ public class AdminFileRealmExpiryTest {
         // lastChangedAt unchanged
         assertEquals(firstRecord, r.adminStorageManager().pwdState().getLastChangedAt("alice"));
     }
+
+    // ---- forceChangeOnFirstLogin tests ----
+
+    private AdminFileRealm realmWithForceChange(boolean forceChange) throws Exception {
+        File kf = tmp.newFile("kf_fc");
+        Properties p = new Properties();
+        p.setProperty("file", kf.getAbsolutePath());
+        p.setProperty("jaas-context", "fileRealm");
+        p.setProperty("integrityEnabled", "false");
+        p.setProperty("lockoutEnabled", "false");
+        p.setProperty("passwordExpirationEnabled", "true");
+        p.setProperty("passwordMaxAgeDays", "90");
+        p.setProperty("passwordExpireWarningDays", "7");
+        p.setProperty("forceChangeOnFirstLogin", String.valueOf(forceChange));
+        p.setProperty("lockstateFile", new File(tmp.getRoot(), "ls_fc").getAbsolutePath());
+        p.setProperty("pwdstateFile", new File(tmp.getRoot(), "ps_fc").getAbsolutePath());
+        p.setProperty("integrityKeyFile", new File(tmp.getRoot(), "key_fc").getAbsolutePath());
+        AdminFileRealm r = new AdminFileRealm();
+        r.init(p);
+        r.addUser("bob", "pw".toCharArray(), new String[]{"g"});
+        r.persist();
+        return r;
+    }
+
+    @Test
+    public void firstLoginForcedChangeRejected() throws Exception {
+        AdminFileRealm r = realmWithForceChange(true);
+        // First successful auth should be rejected because mustChange=true
+        assertNull(r.authenticate("bob", "pw".toCharArray()));
+        assertTrue(r.adminStorageManager().pwdState().getMustChange("bob"));
+    }
+
+    @Test
+    public void changePasswordClearsMustChange() throws Exception {
+        AdminFileRealm r = realmWithForceChange(true);
+        // First auth rejected
+        assertNull(r.authenticate("bob", "pw".toCharArray()));
+        // Change password via updateUser
+        r.updateUser("bob", "bob", "newpw".toCharArray(), new String[]{"g"});
+        r.persist();
+        // mustChange should be cleared
+        assertFalse(r.adminStorageManager().pwdState().getMustChange("bob"));
+        // Auth with new password should succeed
+        assertNotNull(r.authenticate("bob", "newpw".toCharArray()));
+    }
+
+    @Test
+    public void forceChangeDisabledAllowsFirstLogin() throws Exception {
+        AdminFileRealm r = realmWithForceChange(false);
+        // forceChangeOnFirstLogin=false → mustChange never set, first login passes
+        assertNotNull(r.authenticate("bob", "pw".toCharArray()));
+        assertFalse(r.adminStorageManager().pwdState().getMustChange("bob"));
+    }
 }

@@ -49,10 +49,12 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
     private final boolean pwdEnabled;
     private final long maxAgeDays;
     private final long warningDays;
+    private final boolean forceChangeOnFirstLogin;
 
     public AdminFileRealmStorageManager(String keyfile, LockStateManager locks,
             KeyfileIntegrityManager integrity, PasswordStateManager pwdState,
-            boolean pwdEnabled, long maxAgeDays, long warningDays) throws IOException {
+            boolean pwdEnabled, long maxAgeDays, long warningDays,
+            boolean forceChangeOnFirstLogin) throws IOException {
         super(keyfile);
         this.locks = locks;
         this.integrity = integrity;
@@ -60,6 +62,7 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
         this.pwdEnabled = pwdEnabled;
         this.maxAgeDays = maxAgeDays;
         this.warningDays = warningDays;
+        this.forceChangeOnFirstLogin = forceChangeOnFirstLogin;
     }
 
     /**
@@ -85,6 +88,10 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
         }
         String[] groups = super.authenticate(username, password); // drives onAuthFailure/onAuthSuccess
         if (groups != null && pwdEnabled) {
+            if (forceChangeOnFirstLogin && pwdState.getMustChange(username)) {
+                LOG.warning("Authentication rejected: password change required for " + username);
+                return null;
+            }
             long now = System.currentTimeMillis();
             long last = pwdState.getLastChangedAt(username);
             int st = expiryStatus(last, now, maxAgeDays, warningDays);
@@ -132,8 +139,18 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
     @Override
     public synchronized void updateUser(String name, String newName, char[] password, String[] groups) {
         super.updateUser(name, newName, password, groups);
+        String effectiveName = newName != null ? newName : name;
         if (password != null && pwdEnabled) {
-            pwdState.setLastChangedAt(newName != null ? newName : name, System.currentTimeMillis());
+            pwdState.setLastChangedAt(effectiveName, System.currentTimeMillis());
+            pwdState.setMustChange(effectiveName, false);
+        }
+    }
+
+    @Override
+    public synchronized void addUser(String username, char[] password, String[] groupList) {
+        super.addUser(username, password, groupList);
+        if (forceChangeOnFirstLogin && pwdEnabled) {
+            pwdState.setMustChange(username, true);
         }
     }
 

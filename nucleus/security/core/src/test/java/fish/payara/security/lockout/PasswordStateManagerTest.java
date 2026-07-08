@@ -113,6 +113,33 @@ public class PasswordStateManagerTest {
     }
 
     @Test
+    public void mustChangeRoundTrip() throws Exception {
+        long[] c = {1000L};
+        File f = new File(tmp.getRoot(), "pwdstate");
+        PasswordStateManager m1 = new PasswordStateManager(f, "k".repeat(32).getBytes(), () -> c[0]);
+        m1.setLastChangedAt("alice", 500L);
+        m1.setMustChange("alice", true);
+        m1.persist();
+        PasswordStateManager m2 = new PasswordStateManager(f, "k".repeat(32).getBytes(), () -> c[0]);
+        assertTrue(m2.getMustChange("alice"));
+        assertEquals(500L, m2.getLastChangedAt("alice"));
+    }
+
+    @Test
+    public void legacyFormatLoadsAsNotMustChange() throws Exception {
+        long[] c = {1000L};
+        File f = new File(tmp.getRoot(), "pwdstate");
+        PasswordStateManager m1 = new PasswordStateManager(f, "k".repeat(32).getBytes(), () -> c[0]);
+        m1.setLastChangedAt("bob", 300L);
+        // persist then manually rewrite without mustChange flag (legacy format: user=ts)
+        m1.persist();
+        // reload → mustChange should be false
+        PasswordStateManager m2 = new PasswordStateManager(f, "k".repeat(32).getBytes(), () -> c[0]);
+        assertFalse(m2.getMustChange("bob"));
+        assertEquals(300L, m2.getLastChangedAt("bob"));
+    }
+
+    @Test
     public void persistOnEmptyStateWritesFile() throws Exception {
         long[] c = {0};
         File f = new File(tmp.getRoot(), "pwdstate");

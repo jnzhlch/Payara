@@ -52,7 +52,8 @@ public class AdminFileRealm extends FileRealm {
         "lockoutEnabled", "maxLoginAttempts", "lockoutDurationSec",
         "lockoutExemptUsers", "lockstateFile", "integrityKeyFile",
         "integrityEnabled", "integrityMacFile",
-        "passwordExpirationEnabled", "passwordMaxAgeDays", "passwordExpireWarningDays", "pwdstateFile"
+        "passwordExpirationEnabled", "passwordMaxAgeDays", "passwordExpireWarningDays", "pwdstateFile",
+        "forceChangeOnFirstLogin"
     };
 
     @Override
@@ -101,8 +102,9 @@ public class AdminFileRealm extends FileRealm {
         File pwdStateFile = new File(str("pwdstateFile", dir + "/admin-keyfile.pwdstate"));
         PasswordStateManager pwdState = new PasswordStateManager(pwdStateFile, hmacKey,
                 System::currentTimeMillis);
+        boolean forceChangeOnFirstLogin = bool("forceChangeOnFirstLogin", false);
         return new AdminFileRealmStorageManager(file, locks, integrity, pwdState,
-                pwdEnabled, maxAgeDays, warningDays);
+                pwdEnabled, maxAgeDays, warningDays, forceChangeOnFirstLogin);
     }
 
     /** Forwarded by the unlock-file-user command (Task 6). */

@@ -57,6 +57,7 @@ public final class PasswordStateManager {
     private final byte[] hmacKey;
     private final LongSupplier clock;
     private final Map<String, Long> states = new HashMap<>();
+    private final Map<String, Boolean> mustChangeFlags = new HashMap<>();
 
     public PasswordStateManager(File stateFile, byte[] hmacKey, LongSupplier clock) throws IOException {
         this.stateFile = stateFile;
@@ -78,7 +79,10 @@ public final class PasswordStateManager {
             p.load(r);
         }
         for (String user : p.stringPropertyNames()) {
-            states.put(user, Long.parseLong(p.getProperty(user)));
+            String val = p.getProperty(user);
+            String[] parts = val.split(",", 2);
+            states.put(user, Long.parseLong(parts[0]));
+            mustChangeFlags.put(user, parts.length > 1 && "1".equals(parts[1]));
         }
     }
 
@@ -90,10 +94,20 @@ public final class PasswordStateManager {
         states.put(user, ts);
     }
 
+    public synchronized boolean getMustChange(String user) {
+        return mustChangeFlags.getOrDefault(user, false);
+    }
+
+    public synchronized void setMustChange(String user, boolean v) {
+        mustChangeFlags.put(user, v);
+    }
+
     public synchronized void persist() throws IOException {
         Properties p = new Properties();
         for (Map.Entry<String, Long> e : states.entrySet()) {
-            p.setProperty(e.getKey(), String.valueOf(e.getValue()));
+            String user = e.getKey();
+            boolean mc = mustChangeFlags.getOrDefault(user, false);
+            p.setProperty(user, e.getValue() + "," + (mc ? 1 : 0));
         }
         StringWriter w = new StringWriter();
         p.store(w, null);
