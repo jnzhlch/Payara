@@ -24,11 +24,14 @@ import java.util.logging.Logger;
 import org.glassfish.security.common.FailureReason;
 import org.glassfish.security.common.FileRealmStorageManager;
 
+import fish.payara.security.lockout.KeyfileIntegrityManager;
 import fish.payara.security.lockout.LockStateManager;
 
 /**
- * Storage manager wiring the lockout hook into authentication. Integrity-verify
- * (beforeLoad) and password-expiry hooks are no-ops here (P1-B/C).
+ * Storage manager wiring lockout and keyfile-integrity hooks into authentication.
+ * Integrity verification happens in {@link AdminFileRealm#createStorageManager}
+ * before construction (Java super-constructor ordering prevents beforeLoad from
+ * accessing subclass fields). Signing happens in afterPersist.
  *
  * Portions Copyright [2026] Payara Foundation and/or its affiliates
  */
@@ -36,10 +39,13 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
 
     private static final Logger LOG = Logger.getLogger(AdminFileRealmStorageManager.class.getName());
     private final LockStateManager locks;
+    private final KeyfileIntegrityManager integrity;
 
-    public AdminFileRealmStorageManager(String keyfile, LockStateManager locks) throws IOException {
+    public AdminFileRealmStorageManager(String keyfile, LockStateManager locks,
+            KeyfileIntegrityManager integrity) throws IOException {
         super(keyfile);
         this.locks = locks;
+        this.integrity = integrity;
     }
 
     @Override
@@ -69,15 +75,17 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
 
     @Override
     protected void beforeLoad() {
-        // P1-B: KeyfileIntegrityManager.verify() here
+        // Integrity verified in AdminFileRealm.createStorageManager (before super-ctor).
+        // Cannot use subclass fields here: Java runs super-ctor before subclass field init.
     }
 
     @Override
     protected void afterPersist() {
         try {
+            integrity.sign();
             locks.persist();
         } catch (IOException e) {
-            LOG.warning("Failed to persist lockstate: " + e.getMessage());
+            LOG.warning("Failed to persist integrity/lockstate: " + e.getMessage());
         }
     }
 

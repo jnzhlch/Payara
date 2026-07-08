@@ -31,6 +31,7 @@ import com.sun.enterprise.security.auth.realm.NoSuchRealmException;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
 
 import fish.payara.security.lockout.HmacStore;
+import fish.payara.security.lockout.KeyfileIntegrityManager;
 import fish.payara.security.lockout.LockStateManager;
 
 /**
@@ -48,7 +49,8 @@ public class AdminFileRealm extends FileRealm {
 
     private static final String[] PROP_KEYS = {
         "lockoutEnabled", "maxLoginAttempts", "lockoutDurationSec",
-        "lockoutExemptUsers", "lockstateFile", "integrityKeyFile"
+        "lockoutExemptUsers", "lockstateFile", "integrityKeyFile",
+        "integrityEnabled", "integrityMacFile"
     };
 
     @Override
@@ -83,7 +85,15 @@ public class AdminFileRealm extends FileRealm {
                 new LockStateManager.LockoutConfig(enabled, maxAttempts, durationMs, exempt);
         LockStateManager locks = new LockStateManager(stateFile, hmacKey, cfg,
                 System::currentTimeMillis, signal);
-        return new AdminFileRealmStorageManager(file, locks);
+        boolean integrityEnabled = bool("integrityEnabled", true);
+        File macFile = new File(str("integrityMacFile", dir + "/admin-keyfile.mac"));
+        KeyfileIntegrityManager integrity = new KeyfileIntegrityManager(
+                new File(file), macFile, hmacKey, integrityEnabled);
+        if (!integrity.verifyOrMigrate()) {
+            throw new IllegalStateException(
+                    "keyfile integrity check failed (tampered): " + file);
+        }
+        return new AdminFileRealmStorageManager(file, locks, integrity);
     }
 
     /** Forwarded by the unlock-file-user command (Task 6). */
