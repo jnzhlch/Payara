@@ -45,12 +45,15 @@ public final class KeyfileIntegrityManager {
     private final File macFile;
     private final byte[] key;
     private final boolean enabled;
+    private final boolean firstHardeningEnable;
 
-    public KeyfileIntegrityManager(File keyfile, File macFile, byte[] key, boolean enabled) {
+    public KeyfileIntegrityManager(File keyfile, File macFile, byte[] key,
+            boolean enabled, boolean firstHardeningEnable) {
         this.keyfile = keyfile;
         this.macFile = macFile;
         this.key = key;
         this.enabled = enabled;
+        this.firstHardeningEnable = firstHardeningEnable;
     }
 
     /** @return true if keyfile is authentic (or freshly migrated / disabled / not-yet-present). */
@@ -59,10 +62,14 @@ public final class KeyfileIntegrityManager {
             return true;
         }
         if (!macFile.exists()) {
-            if (keyfile.exists()) {
-                sign();   // first hardening enable: migrate existing keyfile
+            if (!keyfile.exists()) {
+                return true;   // nothing to verify yet
             }
-            return true;
+            if (firstHardeningEnable) {
+                sign();        // migrate on first enable
+                return true;
+            }
+            return false;      // .mac missing on EXISTING deployment -> tamper suspect
         }
         return HmacStore.verifyFile(key, keyfile, macFile);
     }

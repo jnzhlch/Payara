@@ -21,28 +21,37 @@ public class KeyfileIntegrityManagerTest {
 
     @Test public void disabledAlwaysPasses() throws Exception {
         File kf = tmp.newFile("kf"); Files.writeString(kf.toPath(), "users...");
-        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, new File(kf.getParent(), "kf.mac"), key(), false);
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, new File(kf.getParent(), "kf.mac"), key(), false, true);
         assertTrue(m.verifyOrMigrate());
     }
     @Test public void firstUseMigratesBySigning() throws Exception {
         File kf = tmp.newFile("kf"); Files.writeString(kf.toPath(), "users...");
         File mac = new File(kf.getParent(), "kf.mac");
-        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true);
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true, true);
         assertFalse(mac.exists());
-        assertTrue(m.verifyOrMigrate());   // macFile missing + keyfile exists -> migrate
-        assertTrue(mac.exists());          // signed
+        assertTrue(m.verifyOrMigrate());   // firstHardeningEnable=true -> migrate
+        assertTrue(mac.exists());            // signed
+    }
+    @Test public void macMissingOnExistingDeploymentFails() throws Exception {
+        File kf = tmp.newFile("kf"); Files.writeString(kf.toPath(), "users...");
+        File mac = new File(kf.getParent(), "kf.mac");
+        assertFalse("precondition: no .mac", mac.exists());
+        // firstHardeningEnable=false means keyfile already existed before hardening was on
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true, false);
+        assertFalse(m.verifyOrMigrate());  // tamper suspect: .mac deleted on existing deployment
+        assertFalse(".mac must NOT be re-created", mac.exists());
     }
     @Test public void validSignaturePasses() throws Exception {
         File kf = tmp.newFile("kf"); Files.writeString(kf.toPath(), "users...");
         File mac = new File(kf.getParent(), "kf.mac");
-        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true);
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true, false);
         m.sign();                          // establish baseline
         assertTrue(m.verifyOrMigrate());
     }
     @Test public void tamperedKeyfileFails() throws Exception {
         File kf = tmp.newFile("kf"); Files.writeString(kf.toPath(), "users...");
         File mac = new File(kf.getParent(), "kf.mac");
-        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true);
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true, false);
         m.sign();
         Files.writeString(kf.toPath(), "TAMPERED");
         assertFalse(m.verifyOrMigrate());
@@ -50,13 +59,13 @@ public class KeyfileIntegrityManagerTest {
     @Test public void missingMacWithNoKeyfilePasses() throws Exception {
         File kf = new File(tmp.getRoot(), "absent");
         File mac = new File(kf.getParent(), "kf.mac");
-        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true);
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), true, true);
         assertTrue(m.verifyOrMigrate());   // nothing to verify yet
     }
     @Test public void signIsNoOpWhenDisabled() throws Exception {
         File kf = tmp.newFile("kf"); Files.writeString(kf.toPath(), "users...");
         File mac = new File(kf.getParent(), "kf.mac");
-        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), false);
+        KeyfileIntegrityManager m = new KeyfileIntegrityManager(kf, mac, key(), false, true);
         m.sign();
         assertFalse(mac.exists());
     }

@@ -86,6 +86,36 @@ public class AdminFileRealmIntegrityTest {
         r2.init(p2); // should throw
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void macDeletionOnExistingDeploymentBlocksReload() throws Exception {
+        // Phase 1: full init + persist (establishes HMAC key + .mac)
+        AdminFileRealm r = realmWithIntegrity();
+        r.addUser("alice", "pw".toCharArray(), new String[]{"g"});
+        r.persist();
+        File keyfile = new File(r.getProperty("file"));
+        File macFile = new File(keyfile.getParent(), "kf.mac");
+        assertTrue("precondition: .mac exists after persist", macFile.exists());
+
+        // Phase 2: attacker tampers keyfile + deletes .mac
+        Files.writeString(keyfile.toPath(), "TAMPERED");
+        macFile.delete();
+        assertFalse("precondition: .mac deleted", macFile.exists());
+
+        // Phase 3: re-init on existing deployment (keyFile already exists -> firstHardeningEnable=false)
+        //         -> .mac missing + keyfile exists -> verifyOrMigrate returns false -> ISE
+        Properties p2 = new Properties();
+        p2.setProperty("file", keyfile.getAbsolutePath());
+        p2.setProperty("jaas-context", "fileRealm");
+        p2.setProperty("integrityEnabled", "true");
+        p2.setProperty("integrityMacFile", macFile.getAbsolutePath());
+        p2.setProperty("lockstateFile",
+                new File(keyfile.getParent(), "lockstate").getAbsolutePath());
+        p2.setProperty("integrityKeyFile",
+                new File(keyfile.getParent(), "key").getAbsolutePath());
+        AdminFileRealm r2 = new AdminFileRealm();
+        r2.init(p2); // should throw IllegalStateException
+    }
+
     @Test
     public void integrityDisabledSkipsVerify() throws Exception {
         File keyfile = newTempFile("kf2");

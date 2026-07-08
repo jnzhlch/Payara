@@ -90,7 +90,7 @@ public class AdminFileRealm extends FileRealm {
         boolean integrityEnabled = bool("integrityEnabled", true);
         File macFile = new File(str("integrityMacFile", dir + "/admin-keyfile.mac"));
         KeyfileIntegrityManager integrity = new KeyfileIntegrityManager(
-                new File(file), macFile, hmacKey, integrityEnabled);
+                new File(file), macFile, hmacKey, integrityEnabled, firstHardeningEnable);
         if (!integrity.verifyOrMigrate()) {
             throw new IllegalStateException(
                     "keyfile integrity check failed (tampered): " + file);
