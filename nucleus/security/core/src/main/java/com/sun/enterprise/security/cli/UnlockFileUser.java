@@ -67,7 +67,6 @@ import static org.glassfish.config.support.CommandTarget.DAS;
 import static org.glassfish.config.support.CommandTarget.STANDALONE_INSTANCE;
 import org.glassfish.config.support.CommandTarget;
 import org.glassfish.config.support.TargetType;
-import org.glassfish.config.support.AccessRequired;
 
 @Service(name = "unlock-file-user")
 @PerLookup
