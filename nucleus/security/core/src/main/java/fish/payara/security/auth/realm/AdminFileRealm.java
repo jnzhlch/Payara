@@ -29,7 +29,6 @@ import org.glassfish.security.common.FileRealmStorageManager;
 import com.sun.enterprise.security.auth.realm.BadRealmException;
 import com.sun.enterprise.security.auth.realm.NoSuchRealmException;
 import com.sun.enterprise.security.auth.realm.file.FileRealm;
-import com.sun.enterprise.security.auth.realm.file.FileRealmUser;
 
 import fish.payara.security.lockout.HmacStore;
 import fish.payara.security.lockout.LockStateManager;
