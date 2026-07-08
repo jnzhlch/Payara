@@ -33,6 +33,7 @@ import com.sun.enterprise.security.auth.realm.file.FileRealm;
 import fish.payara.security.lockout.HmacStore;
 import fish.payara.security.lockout.KeyfileIntegrityManager;
 import fish.payara.security.lockout.LockStateManager;
+import fish.payara.security.lockout.PasswordStateManager;
 
 /**
  * FileRealm subclass for the admin-realm: injects login-failure lockout via a
@@ -50,7 +51,8 @@ public class AdminFileRealm extends FileRealm {
     private static final String[] PROP_KEYS = {
         "lockoutEnabled", "maxLoginAttempts", "lockoutDurationSec",
         "lockoutExemptUsers", "lockstateFile", "integrityKeyFile",
-        "integrityEnabled", "integrityMacFile"
+        "integrityEnabled", "integrityMacFile",
+        "passwordExpirationEnabled", "passwordMaxAgeDays", "passwordExpireWarningDays", "pwdstateFile"
     };
 
     @Override
@@ -93,7 +95,14 @@ public class AdminFileRealm extends FileRealm {
             throw new IllegalStateException(
                     "keyfile integrity check failed (tampered): " + file);
         }
-        return new AdminFileRealmStorageManager(file, locks, integrity);
+        boolean pwdEnabled = bool("passwordExpirationEnabled", true);
+        long maxAgeDays = longs("passwordMaxAgeDays", 90);
+        long warningDays = longs("passwordExpireWarningDays", 7);
+        File pwdStateFile = new File(str("pwdstateFile", dir + "/admin-keyfile.pwdstate"));
+        PasswordStateManager pwdState = new PasswordStateManager(pwdStateFile, hmacKey,
+                System::currentTimeMillis);
+        return new AdminFileRealmStorageManager(file, locks, integrity, pwdState,
+                pwdEnabled, maxAgeDays, warningDays);
     }
 
     /** Forwarded by the unlock-file-user command (Task 6). */
@@ -103,12 +112,20 @@ public class AdminFileRealm extends FileRealm {
         }
     }
 
+    /** Package-private for testing: access the admin storage manager. */
+    AdminFileRealmStorageManager adminStorageManager() {
+        return (AdminFileRealmStorageManager) storageManager();
+    }
+
     private boolean bool(String k, boolean def) {
         String v = getProperty(k);
         return v == null ? def : Boolean.parseBoolean(v);
     }
     private int ints(String k, int def) {
         try { return Integer.parseInt(getProperty(k)); } catch (Exception e) { return def; }
+    }
+    private long longs(String k, long def) {
+        try { return Long.parseLong(getProperty(k)); } catch (Exception e) { return def; }
     }
     private String str(String k, String def) {
         String v = getProperty(k);

@@ -26,26 +26,55 @@ import org.glassfish.security.common.FileRealmStorageManager;
 
 import fish.payara.security.lockout.KeyfileIntegrityManager;
 import fish.payara.security.lockout.LockStateManager;
+import fish.payara.security.lockout.PasswordStateManager;
 
 /**
- * Storage manager wiring lockout and keyfile-integrity hooks into authentication.
- * Integrity verification happens in {@link AdminFileRealm#createStorageManager}
- * before construction (Java super-constructor ordering prevents beforeLoad from
- * accessing subclass fields). Signing happens in afterPersist.
+ * Storage manager wiring lockout, keyfile-integrity, and password-expiry hooks
+ * into authentication. Integrity verification happens in
+ * {@link AdminFileRealm#createStorageManager} before construction (Java
+ * super-constructor ordering prevents beforeLoad from accessing subclass fields).
+ * Signing happens in afterPersist.
  *
  * Portions Copyright [2026] Payara Foundation and/or its affiliates
  */
 public class AdminFileRealmStorageManager extends FileRealmStorageManager {
 
     private static final Logger LOG = Logger.getLogger(AdminFileRealmStorageManager.class.getName());
+
+    static final int OK = 0, WARN = 1, EXPIRED = 2;
+
     private final LockStateManager locks;
     private final KeyfileIntegrityManager integrity;
+    private final PasswordStateManager pwdState;
+    private final boolean pwdEnabled;
+    private final long maxAgeDays;
+    private final long warningDays;
 
     public AdminFileRealmStorageManager(String keyfile, LockStateManager locks,
-            KeyfileIntegrityManager integrity) throws IOException {
+            KeyfileIntegrityManager integrity, PasswordStateManager pwdState,
+            boolean pwdEnabled, long maxAgeDays, long warningDays) throws IOException {
         super(keyfile);
         this.locks = locks;
         this.integrity = integrity;
+        this.pwdState = pwdState;
+        this.pwdEnabled = pwdEnabled;
+        this.maxAgeDays = maxAgeDays;
+        this.warningDays = warningDays;
+    }
+
+    /**
+     * Pure decision function: given a recorded lastChangedAt and the current
+     * clock, return whether the password is expired, within the warning
+     * window, or OK.
+     */
+    static int expiryStatus(long lastChangedAt, long nowMs, long maxAgeDays, long warningDays) {
+        if (maxAgeDays <= 0) return OK;               // 0 = unlimited
+        if (lastChangedAt == 0) return OK;            // not yet recorded → lazy-record path
+        long ageMs = nowMs - lastChangedAt;
+        long maxMs = maxAgeDays * 86_400_000L;
+        if (ageMs > maxMs) return EXPIRED;
+        if (ageMs > maxMs - warningDays * 86_400_000L) return WARN;
+        return OK;
     }
 
     @Override
@@ -54,7 +83,23 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
             LOG.warning("Authentication rejected: account locked " + username);
             return null; // short-circuit before SSHA work
         }
-        return super.authenticate(username, password); // drives onAuthFailure/onAuthSuccess
+        String[] groups = super.authenticate(username, password); // drives onAuthFailure/onAuthSuccess
+        if (groups != null && pwdEnabled) {
+            long now = System.currentTimeMillis();
+            long last = pwdState.getLastChangedAt(username);
+            int st = expiryStatus(last, now, maxAgeDays, warningDays);
+            if (last == 0) {
+                pwdState.setLastChangedAt(username, now);    // lazy first-record
+            }
+            if (st == EXPIRED) {
+                LOG.warning("Authentication rejected: password expired for " + username);
+                return null;
+            }
+            if (st == WARN) {
+                LOG.info("Password expiring soon for " + username);
+            }
+        }
+        return groups;
     }
 
     @Override
@@ -80,16 +125,32 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
     }
 
     @Override
+    public synchronized void updateUser(String name, String newName, char[] password, String[] groups) {
+        super.updateUser(name, newName, password, groups);
+        if (password != null && pwdEnabled) {
+            pwdState.setLastChangedAt(newName != null ? newName : name, System.currentTimeMillis());
+        }
+    }
+
+    @Override
     protected void afterPersist() {
         try {
             integrity.sign();
             locks.persist();
+            if (pwdEnabled) {
+                pwdState.persist();
+            }
         } catch (IOException e) {
-            LOG.warning("Failed to persist integrity/lockstate: " + e.getMessage());
+            LOG.warning("Failed to persist integrity/lockstate/pwdstate: " + e.getMessage());
         }
     }
 
     public void unlock(String username) {
         locks.unlock(username);
+    }
+
+    /** Package-private for testing: direct access to password state. */
+    PasswordStateManager pwdState() {
+        return pwdState;
     }
 }
