@@ -167,6 +167,37 @@ public class AdminFileRealmLockoutTest {
     }
 
     @Test
+    public void lockPersistedAcrossRestart() throws Exception {
+        // Shared file paths for two realm lifecycles (simulates server restart)
+        File keyfile = newTempFile("kf-restart");
+        File stateFile = newTempFile("lockstate-restart");
+        File keyFile = newTempFile("key-restart");
+        Properties props = new Properties();
+        props.setProperty("file", keyfile.getAbsolutePath());
+        props.setProperty("jaas-context", "fileRealm");
+        props.setProperty("lockoutEnabled", "true");
+        props.setProperty("maxLoginAttempts", "2");
+        props.setProperty("lockoutDurationSec", "300");
+        props.setProperty("lockoutExemptUsers", "admin");
+        props.setProperty("lockstateFile", stateFile.getAbsolutePath());
+        props.setProperty("integrityKeyFile", keyFile.getAbsolutePath());
+
+        // First lifecycle: create realm, add user, trigger lockout
+        AdminFileRealm r1 = new AdminFileRealm();
+        r1.init(props);
+        r1.addUser("alice", "secret".toCharArray(), new String[]{"g"});
+        r1.persist();
+        assertNull(r1.authenticate("alice", "wrong".toCharArray())); // fail 1
+        assertNull(r1.authenticate("alice", "wrong".toCharArray())); // fail 2 -> locked
+
+        // Second lifecycle (simulates restart): same files, new realm instance
+        AdminFileRealm r2 = new AdminFileRealm();
+        r2.init(props);
+        // alice should still be locked after restart
+        assertNull("lock should survive restart", r2.authenticate("alice", "secret".toCharArray()));
+    }
+
+    @Test
     public void unlockFileUserUnlocksLockedAccount() throws Exception {
         AdminFileRealm r = realmWithLockout();
         assertNull(r.authenticate("alice", "wrong".toCharArray()));

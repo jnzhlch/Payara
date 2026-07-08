@@ -108,6 +108,11 @@ public class AdminFileRealmStorageManager extends FileRealmStorageManager {
             locks.recordFailure(username);
             if (locks.isLocked(username)) {
                 LOG.warning("Account locked after repeated failures: " + username);
+                try {
+                    locks.persist(); // anti-restart-bypass, spec §5.2
+                } catch (IOException e) {
+                    LOG.warning("Failed to persist lockstate on lock: " + e.getMessage());
+                }
             }
         }
         // USER_NOT_FOUND etc. intentionally not counted (avoids enumeration amplification)
