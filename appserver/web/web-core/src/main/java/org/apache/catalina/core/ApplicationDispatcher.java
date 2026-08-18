@@ -55,7 +55,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Portions Copyright [2016-2021] [Payara Foundation and/or its affiliates.]
+// Portions Copyright [2016-2026] [Payara Foundation and/or its affiliates.]
 package org.apache.catalina.core;
 
 import fish.payara.nucleus.requesttracing.RequestTracingService;
@@ -234,7 +234,7 @@ public final class ApplicationDispatcher
         this.queryString = queryString;
         this.name = name;
 
-        requestTracing = org.glassfish.internal.api.Globals.getDefaultHabitat().getService(RequestTracingService.class);
+        requestTracing = getRequestTracingService();
 
         if (log.isLoggable(Level.FINE))
             log.log(Level.FINE, "servletPath= " + this.servletPath + ", pathInfo= "
@@ -295,7 +295,35 @@ public final class ApplicationDispatcher
     private Wrapper wrapper;
     private HttpServletMapping mappingForDispatch;
 
-    private RequestTracingService requestTracing;
+    private final RequestTracingService requestTracing;
+
+    /**
+     * Cached {@link RequestTracingService} shared across all dispatcher instances.
+     * Resolved once via HK2; without caching, every {@code new ApplicationDispatcher}
+     * (i.e. every {@code <jsp:include>}) would re-resolve the service and acquire the
+     * HK2 AsyncRunLevelContext lock. Subsequent dispatchers read this volatile field
+     * without touching HK2.
+     */
+    private static volatile RequestTracingService cachedRequestTracing;
+
+    private static RequestTracingService getRequestTracingService() {
+        RequestTracingService service = cachedRequestTracing;
+        if (service != null) {
+            return service;
+        }
+        synchronized (ApplicationDispatcher.class) {
+            if (cachedRequestTracing == null) {
+                RequestTracingService resolved = org.glassfish.internal.api.Globals
+                        .getDefaultHabitat().getService(RequestTracingService.class);
+                // Don't cache a null resolution, so a not-yet-ready habitat can be retried.
+                if (resolved != null) {
+                    cachedRequestTracing = resolved;
+                }
+                return resolved;
+            }
+            return cachedRequestTracing;
+        }
+    }
 
     // ------------------------------------------------------------- Properties
 
