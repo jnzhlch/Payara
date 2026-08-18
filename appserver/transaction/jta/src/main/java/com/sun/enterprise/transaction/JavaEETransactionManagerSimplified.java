@@ -42,8 +42,8 @@
 
 package com.sun.enterprise.transaction;
 
-import com.sun.appserv.util.cache.BaseCache;
 import com.sun.appserv.util.cache.Cache;
+import com.sun.appserv.util.cache.LruCache;
 import com.sun.enterprise.config.serverbeans.ModuleMonitoringLevels;
 import com.sun.enterprise.transaction.api.JavaEETransaction;
 import com.sun.enterprise.transaction.api.JavaEETransactionManager;
@@ -256,8 +256,12 @@ public class JavaEETransactionManagerSimplified
             // ignore
         }
 
-        resourceTable = new BaseCache();
-        ((BaseCache)resourceTable).init(maxEntries, loadFactor, null);
+        // Use a bounded LRU cache: entries whose componentDestroyed() is never
+        // invoked are trimmed from the LRU tail, instead of growing unbounded
+        // via BaseCache.handleOverflow() which only doubles the threshold.
+        LruCache lruCache = new LruCache();
+        lruCache.init(maxEntries, LruCache.NO_TIMEOUT, loadFactor, null);
+        resourceTable = lruCache;
         // END IASRI 4705808 TTT001
 
         if (habitat != null) {
