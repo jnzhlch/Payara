@@ -55,7 +55,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Portions Copyright [2019-2021] Payara Foundation and/or affiliates
+// Portions Copyright [2019-2026] Payara Foundation and/or its affiliates
 
 package org.apache.catalina.util;
 
@@ -105,14 +105,13 @@ public final class InstanceSupport {
     // ----------------------------------------------------- Instance Variables
     // START SJSAS 6374619
     private final ReadWriteLock listenersLock = new ReentrantReadWriteLock();
-    private final Lock listenersReadLock = listenersLock.readLock();
     private final Lock listenersWriteLock = listenersLock.writeLock();
     // END SJSAS 6374619
 
     /**
      * The set of registered InstanceListeners for event notifications.
      */
-    private InstanceListener listeners[] = new InstanceListener[0];
+    private volatile InstanceListener listeners[] = new InstanceListener[0];
 
 
     /**
@@ -182,7 +181,6 @@ public final class InstanceSupport {
             return;
 
         InstanceEvent event = new InstanceEvent(wrapper, filter, type);
-        InstanceListener interested[] = null;
         /* SJSAS XXX
         synchronized (listeners) {
             interested = (InstanceListener[]) listeners.clone();
@@ -191,13 +189,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS XXX
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
     }
 
@@ -228,13 +222,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
 
@@ -269,13 +259,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
     }
@@ -311,13 +297,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
     }
@@ -346,13 +328,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
     }
@@ -384,13 +362,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
     }
@@ -424,13 +398,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
     }
@@ -466,13 +436,9 @@ public final class InstanceSupport {
             interested[i].instanceEvent(event);
         */
         // START SJSAS 6374619
-        listenersReadLock.lock();
-        try {
-            for (InstanceListener listener : listeners) {
-                listener.instanceEvent(event);
-            }
-        } finally {
-            listenersReadLock.unlock();
+        InstanceListener interested[] = listeners;
+        for (InstanceListener listener : interested) {
+            listener.instanceEvent(event);
         }
         // END SJSAS 6374619
     }
