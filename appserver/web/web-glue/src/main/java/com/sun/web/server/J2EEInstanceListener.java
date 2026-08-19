@@ -37,7 +37,7 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
-// Portions Copyright [2021-2024] [Payara Foundation and/or its affiliates]
+// Portions Copyright [2021-2026] [Payara Foundation and/or its affiliates]
 package com.sun.web.server;
 
 import com.sun.enterprise.container.common.spi.util.InjectionException;
@@ -99,7 +99,7 @@ public final class J2EEInstanceListener implements InstanceListener {
     private InvocationManager im;
     private JavaEETransactionManager tm;
     private InjectionManager injectionMgr;
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     private AppServSecurityContext securityContext;
 
@@ -125,10 +125,21 @@ public final class J2EEInstanceListener implements InstanceListener {
         }
     }
 
-    private synchronized void init(WebModule wm) {
+    private void init(WebModule wm) {
+        // Fast path: after the first initialization this is a plain volatile read,
+        // avoiding a monitor enter/exit on every instance event (>= 2 per request).
         if (initialized) {
             return;
         }
+        synchronized (this) {
+            if (initialized) {
+                return;
+            }
+            doInit(wm);
+        }
+    }
+
+    private void doInit(WebModule wm) {
         ServerContext serverContext = wm.getServerContext();
         if (serverContext == null) {
             String msg = _rb.getString(LogFacade.NO_SERVER_CONTEXT);
