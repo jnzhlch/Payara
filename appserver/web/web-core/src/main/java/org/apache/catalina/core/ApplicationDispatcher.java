@@ -781,21 +781,19 @@ public final class ApplicationDispatcher
         }
 
         // Allocate a servlet instance to process this request
-        String allocateServletMsg =
-                MessageFormat.format(rb.getString(LogFacade.ALLOCATE_SERVLET_EXCEPTION),
-                                     wrapper.getName());
         try {
             if (!unavailable) {
                 servlet = wrapper.allocate();
             }
         } catch (ServletException e) {
-            log.log(Level.SEVERE, allocateServletMsg,
-                    StandardWrapper.getRootCause(e));
+            String msg = MessageFormat.format(rb.getString(LogFacade.ALLOCATE_SERVLET_EXCEPTION), wrapper.getName());
+            log.log(Level.SEVERE, msg, StandardWrapper.getRootCause(e));
             servletException = e;
             servlet = null;
         } catch (Throwable e) {
-            log.log(Level.SEVERE, allocateServletMsg, e);
-            servletException = new ServletException(allocateServletMsg, e);
+            String msg = MessageFormat.format(rb.getString(LogFacade.ALLOCATE_SERVLET_EXCEPTION), wrapper.getName());
+            log.log(Level.SEVERE, msg, e);
+            servletException = new ServletException(msg, e);
             servlet = null;
         }
                 
@@ -807,9 +805,6 @@ public final class ApplicationDispatcher
         InstanceSupport support = ((StandardWrapper) wrapper).getInstanceSupport();
 
         // Call the service() method for the allocated servlet instance
-        String servletServiceExceptionMsg =
-                MessageFormat.format(rb.getString(LogFacade.SERVLET_SERVICE_EXCEPTION),
-                                     wrapper.getName());
         RequestFacadeHelper reqFacHelper = RequestFacadeHelper.getInstance(request);
         try {
             String jspFile = wrapper.getJspFile();
@@ -858,12 +853,12 @@ public final class ApplicationDispatcher
         } catch (IOException e) {
             support.fireInstanceEvent(AFTER_DISPATCH_EVENT,
                                       servlet, request, response);
-            log.log(Level.WARNING, servletServiceExceptionMsg, e);
+            log.log(Level.WARNING, MessageFormat.format(rb.getString(LogFacade.SERVLET_SERVICE_EXCEPTION), wrapper.getName()), e);
             ioException = e;
         } catch (UnavailableException e) {
             support.fireInstanceEvent(AFTER_DISPATCH_EVENT,
                                       servlet, request, response);
-            log.log(Level.WARNING, servletServiceExceptionMsg, e);
+            log.log(Level.WARNING, MessageFormat.format(rb.getString(LogFacade.SERVLET_SERVICE_EXCEPTION), wrapper.getName()), e);
             servletException = e;
             wrapper.unavailable(e);
         } catch (ServletException e) {
@@ -871,13 +866,13 @@ public final class ApplicationDispatcher
                                       servlet, request, response);
             Throwable rootCause = StandardWrapper.getRootCause(e);
             if (!(rootCause instanceof ClientAbortException)) {
-                log.log(Level.WARNING, servletServiceExceptionMsg, rootCause);
+                log.log(Level.WARNING, MessageFormat.format(rb.getString(LogFacade.SERVLET_SERVICE_EXCEPTION), wrapper.getName()), rootCause);
             }
             servletException = e;
         } catch (RuntimeException e) {
             support.fireInstanceEvent(AFTER_DISPATCH_EVENT,
                                       servlet, request, response);
-            log.log(Level.WARNING, servletServiceExceptionMsg, e);
+            log.log(Level.WARNING, MessageFormat.format(rb.getString(LogFacade.SERVLET_SERVICE_EXCEPTION), wrapper.getName()), e);
             runtimeException = e;
         // START OF S1AS 4703023
         } finally {
@@ -900,19 +895,18 @@ public final class ApplicationDispatcher
         }
 
         // Deallocate the allocated servlet instance
-        String deallocateServletExceptionMsg =
-                MessageFormat.format(rb.getString(LogFacade.ALLOCATE_SERVLET_EXCEPTION),
-                                                  wrapper.getName());
         try {
             if (servlet != null) {
                 wrapper.deallocate(servlet);
             }
         } catch (ServletException e) {
-            log.log(Level.SEVERE, deallocateServletExceptionMsg, e);
+            String msg = MessageFormat.format(rb.getString(LogFacade.ALLOCATE_SERVLET_EXCEPTION), wrapper.getName());
+            log.log(Level.SEVERE, msg, e);
             servletException = e;
         } catch (Throwable e) {
-            log.log(Level.SEVERE, deallocateServletExceptionMsg, e);
-            servletException = new ServletException(deallocateServletExceptionMsg, e);
+            String msg = MessageFormat.format(rb.getString(LogFacade.ALLOCATE_SERVLET_EXCEPTION), wrapper.getName());
+            log.log(Level.SEVERE, msg, e);
+            servletException = new ServletException(msg, e);
         }
 
         // Reset the old context class loader
