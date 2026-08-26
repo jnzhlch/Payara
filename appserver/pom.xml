@@ -49,7 +49,7 @@
     <parent>
         <groupId>fish.payara.server</groupId>
         <artifactId>payara-nucleus-parent</artifactId>
-        <version>7.2026.7-SNAPSHOT</version>
+        <version>7.2026.9-SNAPSHOT</version>
         <relativePath>../nucleus/pom.xml</relativePath>
     </parent>
 
@@ -84,7 +84,7 @@
         <nimbus-jose-jwt.version>10.9.1</nimbus-jose-jwt.version>
         <accessors-smart.version>2.6.0</accessors-smart.version>
         <json-smart.version>2.6.0</json-smart.version>
-        <reactor-core.version>3.8.6</reactor-core.version>
+        <reactor-core.version>3.8.7</reactor-core.version>
         <reactive-streams.version>1.0.4</reactive-streams.version>
         <jcip-annotations.version>1.0-1</jcip-annotations.version>
         
@@ -126,6 +126,7 @@
         <module>payara-appserver-modules</module>
         <module>docker</module>
         <module>data</module>
+        <module>agentic-ai</module>
     </modules>
 
 
