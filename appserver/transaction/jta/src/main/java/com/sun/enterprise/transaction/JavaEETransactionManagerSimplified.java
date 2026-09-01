@@ -154,6 +154,15 @@ public class JavaEETransactionManagerSimplified
 
     private Cache resourceTable;
 
+    /**
+     * One-way flag: set (never cleared) the first time an entry is put into
+     * {@link #resourceTable}. Components that never enlist resources (e.g. plain
+     * JSP/servlet workloads) keep this {@code false}, letting
+     * {@link #getExistingResourceList} skip the lock-guarded cache lookup that
+     * would otherwise run on every invocation postInvoke and always miss.
+     */
+    private volatile boolean resourceTablePopulated = false;
+
     private final ScheduledThreadPoolExecutor scheduledTransactionManagerExecutor;
 
     private final AtomicLong scheduledTransactionTimeouts = new AtomicLong(0);
@@ -567,6 +576,7 @@ public class JavaEETransactionManagerSimplified
             if (l == null) {
                 l = new ArrayList(); //FIXME: use an optimum size?
                 resourceTable.put(key, l);
+                resourceTablePopulated = true;
             }
         }
         return l;
@@ -705,6 +715,11 @@ public class JavaEETransactionManagerSimplified
 
         if (rh != null) {
             l = rh.getResourceList();
+        }
+        else if (!resourceTablePopulated) {
+            // No component has ever registered resources: a lookup is
+            // guaranteed to miss, skip the lock-guarded cache access.
+            return null;
         }
         else {
             Object key = getResourceTableKey(instance, inv);

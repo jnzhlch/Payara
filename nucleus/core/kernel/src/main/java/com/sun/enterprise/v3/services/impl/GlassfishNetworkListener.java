@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -379,10 +380,33 @@ public class GlassfishNetworkListener extends GenericGrizzlyListener {
     /**
      * Glassfish specific HttpCodecFilter extension.
      */
-    private static class GlassfishHttpCodecFilter extends org.glassfish.grizzly.http.HttpServerFilter {
+    static class GlassfishHttpCodecFilter extends org.glassfish.grizzly.http.HttpServerFilter {
         private final String serverVersion;
         private final String xFrameOptions;
         private final String cookieSameSiteValue;
+
+        /**
+         * Sentinel stored in {@link #sameSitePropertyCache} when an application
+         * has no "&lt;app&gt;.sameSite" system property, so that misses are
+         * cached as well. Compared by identity, never by value.
+         */
+        private static final String NO_SAME_SITE_PROPERTY = new String();
+
+        /**
+         * Upper bound on the number of per-application values kept in
+         * {@link #sameSitePropertyCache}.
+         */
+        private static final int SAME_SITE_CACHE_MAX_ENTRIES = 1024;
+
+        /**
+         * Cache of "&lt;app&gt;.sameSite" system property values per application
+         * name. System.getProperty synchronises on the global Properties
+         * monitor, so looking the property up for every response written
+         * serialises all worker threads on that monitor; values are cached
+         * instead (they are JVM-startup configuration, like the other settings
+         * snapshotted in the constructor).
+         */
+        private final ConcurrentHashMap<String, String> sameSitePropertyCache = new ConcurrentHashMap<>();
 
         public GlassfishHttpCodecFilter(
                 final boolean isServerInfoEnabled,
@@ -474,7 +498,7 @@ public class GlassfishNetworkListener extends GenericGrizzlyListener {
                     String[] uriArray = uri.split("/");
                     if (uriArray.length > 1) {
                         String app = uriArray[1].toLowerCase();
-                        String sameSiteProp = System.getProperty(app + ".sameSite");
+                        String sameSiteProp = lookupSameSiteProperty(app);
                         if (sameSiteProp != null) {
                             sameSite = sameSiteProp;
                         }
@@ -491,6 +515,33 @@ public class GlassfishNetworkListener extends GenericGrizzlyListener {
                     }
                 }
             }
+        }
+
+        /**
+         * Looks up the per-application "&lt;app&gt;.sameSite" system property
+         * through {@link #sameSitePropertyCache}, falling back to a live
+         * System.getProperty when the cache is full. Returns null when the
+         * application has no such property.
+         *
+         * The hit path uses {@link ConcurrentHashMap#get}: on Java 8,
+         * computeIfAbsent locks the map bin even when the key is already
+         * present, which under load serialises worker threads on the bin
+         * monitor. Misses compute the value outside any lock and insert it
+         * with putIfAbsent (a duplicate read racing another thread is
+         * harmless).
+         */
+        private String lookupSameSiteProperty(String app) {
+            String cached = sameSitePropertyCache.get(app);
+            if (cached != null) {
+                return cached == NO_SAME_SITE_PROPERTY ? null : cached;
+            }
+            if (sameSitePropertyCache.size() >= SAME_SITE_CACHE_MAX_ENTRIES) {
+                // Cache is full: don't grow without bound, fall back to live lookup
+                return System.getProperty(app + ".sameSite");
+            }
+            String value = System.getProperty(app + ".sameSite");
+            sameSitePropertyCache.putIfAbsent(app, value != null ? value : NO_SAME_SITE_PROPERTY);
+            return value;
         }
     }
 }

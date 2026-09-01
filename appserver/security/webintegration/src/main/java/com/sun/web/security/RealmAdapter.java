@@ -210,6 +210,16 @@ public class RealmAdapter extends RealmBase implements RealmInitializer, PostCon
 
     private BaseAuthenticationService authenticationService;
 
+    /**
+     * One-way negative cache for {@link #isSecurityExtensionEnabled}: once it is
+     * known that no JASPIC server auth config is registered for this module,
+     * subsequent calls return {@code false} directly instead of re-entering the
+     * lock-guarded provider lookup on every request. A module that does use
+     * JASPIC keeps taking the original path, so its runtime behaviour is
+     * unchanged.
+     */
+    private volatile boolean securityExtensionDisabled = false;
+
     @Inject
     private ServerContext serverContext;
 
@@ -308,12 +318,19 @@ public class RealmAdapter extends RealmBase implements RealmInitializer, PostCon
      */
     @Override
     public boolean isSecurityExtensionEnabled(ServletContext context) {
+        if (securityExtensionDisabled) {
+            return false;
+        }
         if (authenticationService == null) {
             initAuthenticationService(context);
         }
 
         try {
-            return (authenticationService.getServerAuthConfig() != null);
+            boolean enabled = authenticationService.getServerAuthConfig() != null;
+            if (!enabled) {
+                securityExtensionDisabled = true;
+            }
+            return enabled;
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }

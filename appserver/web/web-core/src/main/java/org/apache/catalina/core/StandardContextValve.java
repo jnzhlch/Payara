@@ -339,6 +339,14 @@ final class StandardContextValve
     }
 
     /**
+     * Case-insensitive prefix check that, unlike {@code toUpperCase().startsWith(...)},
+     * does not allocate an upper-case copy of the request path on every invocation.
+     */
+    private static boolean startsWithIgnoreCase(String s, String prefix) {
+        return s.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    /**
      * this method helps to evaluate the element "/./" on the path
      * @param path to be normalized
      * @return normalized path
@@ -364,9 +372,9 @@ final class StandardContextValve
         // END CR 6415120
             String requestPath = normalize(hreq.getRequestPathMB().toString(Charsets.UTF8_CHARSET));
             if ((requestPath == null)
-                    || (requestPath.toUpperCase().startsWith("/META-INF/", 0))
+                    || (startsWithIgnoreCase(requestPath, "/META-INF/"))
                     || (requestPath.equalsIgnoreCase("/META-INF"))
-                    || (requestPath.toUpperCase().startsWith("/WEB-INF/", 0))
+                    || (startsWithIgnoreCase(requestPath, "/WEB-INF/"))
                     || (requestPath.equalsIgnoreCase("/WEB-INF"))) {
                 notFound((HttpServletResponse) response.getResponse());
                 return null;

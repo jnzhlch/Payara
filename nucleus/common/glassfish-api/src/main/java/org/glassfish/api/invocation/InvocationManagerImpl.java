@@ -214,6 +214,15 @@ public class InvocationManagerImpl implements InvocationManager {
         }
     }
 
+    /**
+     * Cached fully-qualified name used by {@link #isInconsistentUse}: unlike
+     * {@link Class#getSimpleName()}, {@link Class#getName()} returns a cached
+     * string, so the per-postInvoke comparison allocates nothing. The class
+     * itself lives in a module that cannot be referenced from here.
+     */
+    private static final String WEB_COMPONENT_INVOCATION_CLASS_NAME =
+            "com.sun.enterprise.web.WebComponentInvocation";
+
     private static boolean isInconsistentUse(ComponentInvocation a, ComponentInvocation b) {
         if (a == null || b == null) {
             return a != b;
@@ -221,7 +230,9 @@ public class InvocationManagerImpl implements InvocationManager {
         if (a.getClass() != b.getClass()) {
             return true;
         }
-        return a.getClass().getSimpleName().equals("WebComponentInvocation") ? a.instance != b.instance : a != b; // Effectively we ignore WebComponentInvocations for now
+        return WEB_COMPONENT_INVOCATION_CLASS_NAME.equals(a.getClass().getName())
+                ? a.instance != b.instance
+                : a != b; // Effectively we ignore WebComponentInvocations for now
     }
 
     /**

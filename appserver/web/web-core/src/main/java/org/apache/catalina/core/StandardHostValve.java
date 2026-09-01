@@ -218,19 +218,22 @@ final class StandardHostValve
                 status(request, response);
             }
 
-            // See IT 11423
-            boolean isDefaultErrorPageEnabled = true;
-            Wrapper wrapper = request.getWrapper();
-            if (wrapper != null) {
-                String initParam = wrapper.findInitParameter(Constants.IS_DEFAULT_ERROR_PAGE_ENABLED_INIT_PARAM);
-                if (initParam != null) {
-                    isDefaultErrorPageEnabled = Boolean.parseBoolean(initParam);
-                }
-            }
-
             // START SJSAS 6374691
-            if (errorReportValve != null && response.isError() && isDefaultErrorPageEnabled) {
-                errorReportValve.postInvoke(request, response);
+            // See IT 11423. The init parameter lookup (which takes a read lock
+            // on the wrapper) is deferred into the error branch: it is only
+            // consumed here, and non-error responses pay nothing.
+            if (errorReportValve != null && response.isError()) {
+                boolean isDefaultErrorPageEnabled = true;
+                Wrapper wrapper = request.getWrapper();
+                if (wrapper != null) {
+                    String initParam = wrapper.findInitParameter(Constants.IS_DEFAULT_ERROR_PAGE_ENABLED_INIT_PARAM);
+                    if (initParam != null) {
+                        isDefaultErrorPageEnabled = Boolean.parseBoolean(initParam);
+                    }
+                }
+                if (isDefaultErrorPageEnabled) {
+                    errorReportValve.postInvoke(request, response);
+                }
             }
             // END SJSAS 6374691
 
