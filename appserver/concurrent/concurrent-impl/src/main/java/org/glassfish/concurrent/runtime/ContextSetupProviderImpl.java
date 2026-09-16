@@ -37,7 +37,7 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
-// Portions Copyright [2016-2024] [Payara Foundation and/or its affiliates]
+// Portions Copyright [2016-2026] [Payara Foundation and/or its affiliates]
 
 package org.glassfish.concurrent.runtime;
 
@@ -82,6 +82,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -114,7 +115,25 @@ public class ContextSetupProviderImpl implements ContextSetupProvider {
     private final Set<String> contextPropagate;
     private final Set<String> contextClear;
     private final Set<String> contextUnchanged;
-    private Map<String, ThreadContextProvider> allThreadContextProviders = null;
+    /**
+     * ThreadContextProviders discovered via ServiceLoader, cached per classloader.
+     * The ServiceLoader lookup enumerates classpath resources (jar entries, filesystem
+     * stats under OSGi classloaders) and holds classloader-wide locks, which makes it
+     * prohibitively expensive on per-task submission paths such as idle timeouts.
+     * A weak key lets each entry be collected once its classloader becomes
+     * unreferenced, e.g. after application undeployment.
+     */
+    private final transient Map<ClassLoader, Map<String, ThreadContextProvider>> threadContextProvidersCache
+            = Collections.synchronizedMap(new WeakHashMap<>());
+    /**
+     * Single-entry fast path in front of the synchronized map: nearly all deployments
+     * run with one classloader on this path, so a lock-free hit avoids monitor
+     * contention among worker threads. Write order is providers-then-loader (reads
+     * read loader-then-providers), so a reader seeing the new loader also sees its
+     * matching providers.
+     */
+    private transient volatile Map<String, ThreadContextProvider> lastProviders;
+    private transient volatile ClassLoader lastLoader;
     /**
      * Points to the context, which contains ALL_REMAINING.
      */
@@ -199,23 +218,12 @@ public class ContextSetupProviderImpl implements ContextSetupProvider {
             currentSecurityContext = SecurityContext.getCurrent();
         }
 
-        // TODO: put initialization of providers to better place; caching is a problem due to different classloaders
-        allThreadContextProviders = new HashMap<>();
-        for (ThreadContextProvider service : ServiceLoader.load(jakarta.enterprise.concurrent.spi.ThreadContextProvider.class, Utility.getClassLoader())) {
-            String serviceName = service.getThreadContextType();
-            if (contextPropagate.contains(serviceName) || contextClear.contains(serviceName) || contextUnchanged.contains(serviceName)) {
-                allThreadContextProviders.put(serviceName, service);
-            } else {
-                if (allRemaining != null) {
-                    allRemaining.add(serviceName);
-                    allThreadContextProviders.put(serviceName, service);
-                }
-            }
-        }
+        // run the ServiceLoader lookup only on the first saveContext per classloader
+        Map<String, ThreadContextProvider> threadContextProviders = getThreadContextProviders();
         // check, if there is no unexpected provider name
-        Set<String> verifiedContextPropagate = filterVerifiedProviders(contextPropagate);
-        Set<String> verifiedContextClear = filterVerifiedProviders(contextClear);
-        Set<String> verifiedContextUnchanged = filterVerifiedProviders(contextUnchanged);
+        Set<String> verifiedContextPropagate = filterVerifiedProviders(contextPropagate, threadContextProviders);
+        Set<String> verifiedContextClear = filterVerifiedProviders(contextClear, threadContextProviders);
+        Set<String> verifiedContextUnchanged = filterVerifiedProviders(contextUnchanged, threadContextProviders);
 
         ComponentInvocation currentInvocation = invocationManager.getCurrentInvocation();
         if (currentInvocation != null) {
@@ -233,12 +241,12 @@ public class ContextSetupProviderImpl implements ContextSetupProvider {
         List<ThreadContextSnapshot> threadContextSnapshots = new ArrayList<>();
         // remember values from propagate and clear lists
         verifiedContextPropagate.stream()
-                .map((provider) -> allThreadContextProviders.get(provider))
+                .map((provider) -> threadContextProviders.get(provider))
                 .filter(snapshot -> snapshot != null) // ignore standard providers like CONTEXT_TYPE_CLASSLOADING
                 .map(snapshot -> snapshot.currentContext(contextObjectProperties))
                 .forEach(snapshot -> threadContextSnapshots.add(snapshot));
         verifiedContextClear.stream()
-                .map((provider) -> allThreadContextProviders.get(provider))
+                .map((provider) -> threadContextProviders.get(provider))
                 .filter(snapshot -> snapshot != null)
                 .map(snapshot -> snapshot.clearedContext(contextObjectProperties))
                 .forEach(snapshot -> threadContextSnapshots.add(snapshot));
@@ -450,7 +458,33 @@ public class ContextSetupProviderImpl implements ContextSetupProvider {
         return ManagedTask.SUSPEND;
     }
 
-    private Set<String> filterVerifiedProviders(Set<String> providers) {
+    private Map<String, ThreadContextProvider> getThreadContextProviders() {
+        ClassLoader classLoader = Utility.getClassLoader();
+        // lock-free fast path for the (common) repeated same-classloader case
+        if (classLoader != null && classLoader == lastLoader) {
+            return lastProviders;
+        }
+        Map<String, ThreadContextProvider> providers = threadContextProvidersCache.computeIfAbsent(classLoader, cl -> {
+            Map<String, ThreadContextProvider> found = new HashMap<>();
+            for (ThreadContextProvider service : ServiceLoader.load(ThreadContextProvider.class, cl)) {
+                String serviceName = service.getThreadContextType();
+                if (contextPropagate.contains(serviceName) || contextClear.contains(serviceName) || contextUnchanged.contains(serviceName)) {
+                    found.put(serviceName, service);
+                } else {
+                    if (allRemaining != null) {
+                        allRemaining.add(serviceName);
+                        found.put(serviceName, service);
+                    }
+                }
+            }
+            return found;
+        });
+        lastProviders = providers;
+        lastLoader = classLoader;
+        return providers;
+    }
+
+    private Set<String> filterVerifiedProviders(Set<String> providers, Map<String, ThreadContextProvider> threadContextProviders) {
         HashSet<String> filtered = new HashSet<>();
         Iterator<String> providerIter = providers.iterator();
         while (providerIter.hasNext()) {
@@ -464,7 +498,7 @@ public class ContextSetupProviderImpl implements ContextSetupProvider {
                     filtered.add(provider);
                     break;
                 default:
-                    if (allThreadContextProviders.containsKey(provider)) {
+                    if (threadContextProviders.containsKey(provider)) {
                         filtered.add(provider);
                     } else {
                         logger.log(Level.SEVERE, "Thread context provider ''{0}'' is not registered in WEB-APP/services/jakarta.enterprise.concurrent.spi.ThreadContextProvider and will be ignored!", provider);
