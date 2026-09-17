@@ -232,7 +232,13 @@ public abstract class ContainerBase
      */
     protected ArrayList<ContainerListener> listeners =
         new ArrayList<ContainerListener>();
-    private ContainerListener[] listenersArray = new ContainerListener[0];
+    /**
+     * Snapshot of {@link #listeners} rebuilt inside the synchronized block of
+     * {@link #addContainerListener}/{@link #removeContainerListener}. Volatile so
+     * that {@link #fireContainerEvent} can read it without locking (this path runs
+     * once per async read/write callback, e.g. for every WebSocket message).
+     */
+    private volatile ContainerListener[] listenersArray = new ContainerListener[0];
 
 
     /**
@@ -1549,13 +1555,11 @@ public abstract class ContainerBase
     @Override
     public void fireContainerEvent(String type, Object data) {
 
-        ContainerListener[] list = null;
-
-        synchronized (listeners) {
-            if (listeners.isEmpty()) {
-                return;
-            }
-            list = listenersArray;
+        // Lock-free volatile snapshot read; listeners mutation happens under
+        // the listeners lock and publishes a fresh array via this volatile field.
+        ContainerListener[] list = listenersArray;
+        if (list.length == 0) {
+            return;
         }
 
         ContainerEvent event = new ContainerEvent(this, type, data);
