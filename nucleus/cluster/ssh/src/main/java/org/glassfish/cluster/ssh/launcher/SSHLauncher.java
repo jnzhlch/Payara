@@ -54,11 +54,13 @@ import com.sun.enterprise.util.io.FileUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelExec;
 import org.apache.sshd.client.channel.ClientChannelEvent;
+import org.apache.sshd.client.config.hosts.HostConfigEntryResolver;
 import org.apache.sshd.client.config.hosts.KnownHostEntry;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
 import org.apache.sshd.client.keyverifier.KnownHostsServerKeyVerifier;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.config.keys.FilePasswordProvider;
+import org.apache.sshd.common.keyprovider.KeyIdentityProvider;
 import org.apache.sshd.common.NamedResource;
 import org.apache.sshd.common.util.GenericUtils;
 import org.apache.sshd.common.util.security.SecurityUtils;
@@ -128,6 +130,7 @@ public class SSHLauncher {
     private String password;
     private String rawPassword;
     private String rawKeyPassPhrase;
+    private boolean keyAuthFailed = false;
 
     public void init(Logger logger) {
         this.logger = logger;
@@ -179,10 +182,16 @@ public class SSHLauncher {
 
     private void init(String userName, String host, int port, String password, String keyFile,
                       String keyPassPhrase, char[] privateKey, Logger logger) {
+        // Preserve keyAuthFailed when re-initialising with the same key and host so that
+        // subsequent openSession() calls skip the key without retrying it. Reset only when
+        // the key file or target host actually changes (different credentials or target).
+        if (!Objects.equals(this.keyFile, keyFile) || !Objects.equals(this.host, host)) {
+            this.keyAuthFailed = false;
+        }
         this.port = port == 0 ? 22 : port;
         this.host = host;
         this.privateKey = (privateKey != null) ? Arrays.copyOf(privateKey, privateKey.length) : null;
-        this.keyFile = (keyFile == null && privateKey == null) ? SSHUtil.getExistingKeyFile() : keyFile;
+        this.keyFile = keyFile;
         this.logger = logger;
         this.userName = SSHUtil.checkString(userName) == null ? System.getProperty("user.name") : userName;
         this.rawPassword = password;
@@ -210,6 +219,10 @@ public class SSHLauncher {
     SshClient buildClient() throws IOException {
         logger.finer("Building SSH client, knownHosts=" + knownHosts);
         SshClient client = SshClient.setUpDefaultClient();
+
+        client.setHostConfigEntryResolver(HostConfigEntryResolver.EMPTY);
+
+        client.setKeyIdentityProvider(KeyIdentityProvider.EMPTY_KEYS_PROVIDER);
 
         // Ensure the known_hosts file exists so the verifier can record new keys (TOFU).
         // If creation fails we fall back to accept-all and log a warning.
@@ -278,19 +291,24 @@ public class SSHLauncher {
             }
         }
 
-        if (!authenticated && SSHUtil.checkString(keyFile) != null) {
+        if (!authenticated && !keyAuthFailed && SSHUtil.checkString(keyFile) != null) {
             logger.finer("Attempting key-file auth: " + keyFile);
             File key = new File(keyFile);
             if (key.exists()) {
                 try {
                     authenticated = tryKeyFileAuth(session, key);
                     logger.finer("Key-file auth result: " + authenticated);
+                    if (!authenticated) {
+                        keyAuthFailed = true;
+                    }
                 } catch (IOException | GeneralSecurityException ex) {
                     appendWarning(message, "SSH auth with key file " + key + " failed: "
                             + ExceptionUtil.getRootCause(ex).getMessage(), ex);
+                    keyAuthFailed = true;
                 }
             } else {
                 logger.warning("Key file does not exist: " + keyFile);
+                keyAuthFailed = true;
             }
         }
 
@@ -438,14 +456,14 @@ public class SSHLauncher {
                 logger.fine("Command completed with exit status: " + result);
                 return result;
             } finally {
-                try { session.close(); } catch (IOException ignored) { }
+                try { session.close(false).await(5000L); } catch (Exception ignored) { }
             }
         } catch (GeneralSecurityException ex) {
             throw new IOException("Security error during SSH connection", ex);
         } catch (IOException ex) {
             throw ex;
         } finally {
-            try { client.close(); } catch (IOException ignored) { }
+            stopClientGracefully(client);
         }
     }
 
@@ -481,19 +499,20 @@ public class SSHLauncher {
                 fullCommand.append(command);
                 return exec(session, fullCommand.toString(), os, listInputStream(stdinLines));
             } finally {
-                try { session.close(); } catch (IOException ignored) { }
+                try { session.close(false).await(5000L); } catch (Exception ignored) { }
             }
         } catch (GeneralSecurityException ex) {
             throw new IOException("Security error during SSH connection", ex);
         } finally {
-            try { client.close(); } catch (IOException ignored) { }
+            stopClientGracefully(client);
         }
     }
 
     int exec(ClientSession session, String command, OutputStream os, InputStream is)
             throws IOException, InterruptedException {
         logger.finer("Executing: " + command);
-        try (ChannelExec channel = session.createExecChannel(command)) {
+        ChannelExec channel = session.createExecChannel(command);
+        try {
             channel.setOut(os);
             channel.setErr(os);
 
@@ -525,6 +544,11 @@ public class SSHLauncher {
             Integer exitStatus = channel.getExitStatus();
             logger.finer("Exit status: " + exitStatus);
             return exitStatus != null ? exitStatus : -1;
+        } finally {
+            try {
+                channel.close();
+            } catch (IllegalStateException | IOException ignored) {
+            }
         }
     }
 
@@ -549,11 +573,11 @@ public class SSHLauncher {
             return newSFTPClient(client, session);
         } catch (IOException ex) {
             if (session != null) { try { session.close(); } catch (IOException ignored) { } }
-            try { client.close(); } catch (IOException ignored) { }
+            client.stop();
             throw ex;
         } catch (GeneralSecurityException ex) {
             if (session != null) { try { session.close(); } catch (IOException ignored) { } }
-            try { client.close(); } catch (IOException ignored) { }
+            client.stop();
             throw new IOException("Security error opening SFTP connection", ex);
         }
     }
@@ -571,10 +595,10 @@ public class SSHLauncher {
             ClientSession session = openSession(client);
             return new SSHConnection(client, session, this);
         } catch (IOException ex) {
-            try { client.close(); } catch (IOException ignored) { }
+            client.stop();
             throw ex;
         } catch (GeneralSecurityException ex) {
-            try { client.close(); } catch (IOException ignored) { }
+            client.stop();
             throw new IOException("Security error opening SSH connection", ex);
         }
     }
@@ -587,7 +611,7 @@ public class SSHLauncher {
         } catch (GeneralSecurityException ex) {
             throw new IOException("Security error during ping", ex);
         } finally {
-            try { client.close(); } catch (IOException ignored) { }
+            try { client.close(false).await(5000L); } catch (Exception ignored) { }
         }
     }
 
@@ -646,7 +670,7 @@ public class SSHLauncher {
             return false;
         } finally {
             if (client != null) {
-                try { client.close(); } catch (IOException ignored) { }
+                try { client.close(false).await(5000L); } catch (Exception ignored) { }
             }
         }
     }
@@ -677,7 +701,7 @@ public class SSHLauncher {
             this.keyFile = savedKeyFile;
             this.privateKey = savedPrivateKey;
             if (client != null) {
-                try { client.close(); } catch (IOException ignored) { }
+                try { client.close(false).await(5000L); } catch (Exception ignored) { }
             }
         }
     }
@@ -733,7 +757,7 @@ public class SSHLauncher {
             session = openSession(client);
         } catch (IOException | GeneralSecurityException ex) {
             if (client != null) {
-                try { client.close(); } catch (IOException ignored) { }
+                client.stop();
             }
             if (ex instanceof IOException) {
                 throw (IOException) ex;
@@ -750,7 +774,7 @@ public class SSHLauncher {
             sftp = new SFTPClient(client, session);
         } catch (IOException ex) {
             try { session.close(); } catch (IOException ignored) { }
-            try { client.close(); } catch (IOException ignored) { }
+            client.stop();
             throw ex;
         }
         try (sftp) {
@@ -966,6 +990,21 @@ public class SSHLauncher {
 
     private static String commandListToQuotedString(List<String> command) {
         return SSHCommandUtils.commandListToQuotedString(command);
+    }
+
+    private void stopClientGracefully(SshClient client) {
+        if (client == null) {
+            return;
+        }
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+        try {
+            client.close(false).await(5000L);
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
