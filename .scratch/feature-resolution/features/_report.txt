@@ -1,0 +1,40 @@
+appserver-base                   jars=0    缺失=0 
+appserver-core                   jars=43   缺失=0 
+felix                            jars=0    缺失=0 
+glassfish-cluster                jars=0    缺失=0 
+glassfish-common                 jars=9    缺失=0 
+glassfish-common-web             jars=10   缺失=4  MISSING: appserver-cli.jar,cli-optional.jar,jline-terminal-jni.jar,jna.jar
+glassfish-corba-base             jars=1    缺失=0 
+glassfish-ejb-lite               jars=4    缺失=0 
+glassfish-grizzly                jars=0    缺失=0 
+glassfish-grizzly-full           jars=1    缺失=0 
+glassfish-gui                    jars=4    缺失=0 
+glassfish-ha                     jars=1    缺失=0 
+glassfish-hk2                    jars=0    缺失=0 
+glassfish-jca                    jars=9    缺失=0 
+glassfish-jcdi                   jars=11   缺失=0 
+glassfish-jdbc                   jars=2    缺失=0 
+glassfish-jmx                    jars=0    缺失=0 
+glassfish-jpa                    jars=12   缺失=0 
+glassfish-jsf                    jars=1    缺失=0 
+glassfish-jta                    jars=1    缺失=0 
+glassfish-jts                    jars=1    缺失=0 
+glassfish-management             jars=0    缺失=0 
+glassfish-nucleus                jars=2    缺失=2  MISSING: appserver-domain-web.jar,appserver-domain.jar
+glassfish-web                    jars=38   缺失=0 
+h2db                             jars=0    缺失=0 
+jersey                           jars=9    缺失=0 
+json                             jars=4    缺失=0 
+nucleus                          jars=35   缺失=4  MISSING: flashlight-agent.jar,jline.jar,nucleus-domain.jar,server-mgmt.jar
+nucleus-cluster                  jars=5    缺失=1  MISSING: cluster-cli.jar
+nucleus-common                   jars=1    缺失=0 
+nucleus-corba-base               jars=8    缺失=0 
+nucleus-felix                    jars=0    缺失=0 
+nucleus-grizzly                  jars=2    缺失=0 
+nucleus-hk2                      jars=18   缺失=0 
+nucleus-jersey                   jars=23   缺失=0 
+nucleus-jmx                      jars=3    缺失=0 
+nucleus-management               jars=3    缺失=0 
+---
+packagers=37, 生成清单=37, 根=web
+WARN: 未找到 pom: legal-fragment

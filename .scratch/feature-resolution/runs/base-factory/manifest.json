@@ -1,0 +1,27 @@
+{
+  "label": "base-factory",
+  "created": "2026-11-23T08:36:56.314579",
+  "artifact": {
+    "zip": "/d/AIspace/Payara/appserver/distributions/payara-web/target/payara-web.zip",
+    "sha256": "a4703d6d0553416a30cf2a5bc0570f0920b2f98138fad61c3a0ae7e0cc2783cf"
+  },
+  "config": "factory",
+  "java": "Java(TM) SE Runtime Environment 21.0.12.1",
+  "host": "DESKTOP-OMHP7KI",
+  "caliber": "start-cmd -> first HTTP response on :8080, median of rounds 2..N",
+  "runs": [
+    {
+      "at": "2026-11-23T08:36:56.314647",
+      "rounds": 6,
+      "hot_median_ms": 10783,
+      "cold_ms": 17565,
+      "hot_rounds_ms": [
+        12842,
+        10098,
+        11301,
+        10783,
+        10486
+      ]
+    }
+  ]
+}

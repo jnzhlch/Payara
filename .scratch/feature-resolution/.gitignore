@@ -1,0 +1,19 @@
+# 发行版安装副本与运行产物不入库 (单份 209M+)
+runs/*/install/
+runs/*/deferred/
+runs/gui-deferred/
+runs/*/boot*.log
+runs/*/logs/
+runs/*/this-boot.log
+runs/*/last-*.txt
+runs/*/pwfile.txt
+runs/*/tune.log
+runs/*/setup.log
+runs/*/logbase.txt
+runs/*/tmp-*.txt
+runs/*/boot-verbose.log
+# 编译产物与一次性诊断输出
+work/**/*.class
+work/*.log
+work/*.war
+work/last-*.txt

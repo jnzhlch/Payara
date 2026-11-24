@@ -1,0 +1,152 @@
+# R10 实验: glassfish-naming 提前
+glassfish-naming.jar
+# R1: core 16 + autostart 8（现状启动集；裁掉全部 appserver 模块）
+# R2 +5: R1 wiring 失败的包提供者
+# R3 +2
+# R4 +1: ModuleStartup 提供者
+# R5 +1: kernel wiring 依赖
+# wireclosure 自动补齐
+# R6 +1: javax.rmi 提供者（JDK 11+ 移除）
+# wireclosure 自动补齐
+# R7 +1: APIClassLoaderServiceImpl 硬依赖 (APIExporterModuleName)
+# R8 +7: InitRunLevel 服务批量 (naming/日志/监控/telemetry/web-naming/jakartaee-kernel/mp-config)
+# wireclosure 自动补齐
+# R9 +1: JavaEEContextUtilImpl 提供者 (nucleus ClusteredStore 跨层依赖 appserver 模块!)
+# wireclosure 自动补齐
+hk2-api.jar
+hk2-utils.jar
+jakarta.inject-api.jar
+osgi-resource-locator.jar
+hk2-locator.jar
+hk2-runlevel.jar
+hk2-config.jar
+config-types.jar
+class-model.jar
+asm.jar
+asm-analysis.jar
+asm-commons.jar
+asm-tree.jar
+asm-util.jar
+osgi-adapter.jar
+glassfish.jar
+org.apache.felix.configadmin.jar
+org.apache.felix.eventadmin.jar
+org.apache.felix.fileinstall.jar
+org.apache.felix.gogo.command.jar
+org.apache.felix.gogo.runtime.jar
+org.apache.felix.gogo.shell.jar
+org.apache.felix.scr.jar
+org.apache.felix.shell.jar
+hk2-core.jar
+jakarta.annotation-api.jar
+jakarta.xml.bind-api.jar
+javassist.jar
+aopalliance-repackaged.jar
+jakarta.activation-api.jar
+tiger-types.jar
+kernel.jar
+hazelcast.jar
+admin-cli.jar
+admin-util.jar
+common-util.jar
+config-api.jar
+deployment-common.jar
+glassfish-api.jar
+gmbal-api-only.jar
+healthcheck-stuck.jar
+hibernate-validator.jar
+internal-api.jar
+jakarta.validation-api.jar
+jline-jdk11.jar
+management-api.jar
+nucleus-grizzly-all.jar
+org.apache.felix.bundlerepository.jar
+payara-api.jar
+payara-executor-service.jar
+requesttracing-core.jar
+security-services.jar
+classmate.jar
+grizzly-npn-osgi.jar
+hazelcast-bootstrap.jar
+healthcheck-core.jar
+jackson-core.jar
+jakarta-ee9-shim.jar
+jakarta.authorization-api.jar
+jakarta.el-api.jar
+jakarta.enterprise.cdi-api.jar
+jakarta.interceptor-api.jar
+jakarta.json.jar
+jakarta.persistence-api.jar
+jakarta.security.enterprise-api.jar
+jakarta.servlet-api.jar
+jboss-logging.jar
+microprofile-config-api.jar
+mimepull.jar
+pfl-tf.jar
+security.jar
+soteria.jar
+jakarta-ee11-shim.jar
+jakarta.authentication-api.jar
+jakarta.ejb-api.jar
+jakarta.enterprise.cdi-el-api.jar
+jakarta.enterprise.lang-model.jar
+jakarta.ws.rs-api.jar
+nimbus-jose-jwt.jar
+pfl-basic.jar
+pfl-dynamic.jar
+ssl-impl.jar
+jakarta.transaction-api.jar
+glassfish-corba-omgapi.jar
+jsr107-repackaged.jar
+api-exporter.jar
+logging.jar
+monitoring-core.jar
+telemetry-bootstrap.jar
+web-naming.jar
+jakartaee-kernel.jar
+microprofile-config-service.jar
+amx-core.jar
+cluster-ssh.jar
+flashlight-framework.jar
+glassfish-corba-orb.jar
+jakarta.mail-api.jar
+nucleus-resources.jar
+opentelemetry-repackaged.jar
+resources-connector.jar
+apache-mina-repackaged.jar
+dol.jar
+glassfish-corba-internal-api.jar
+glassfish-mbeanserver.jar
+jackson-databind.jar
+jakarta.enterprise.deploy-api.jar
+jakarta.resource-api.jar
+annotation-framework.jar
+jackson-annotations.jar
+jmxremote_optional-repackaged.jar
+gf-web-connector.jar
+container-common.jar
+weld-osgi-bundle.jar
+concurro.jar
+connectors-internal-api.jar
+ha-api.jar
+jboss-classfilewriter.jar
+transaction-internal-api.jar
+jakarta.enterprise.concurrent-api.jar
+# R12 +1: TransactionManager 实现
+jta.jar
+# wireclosure 自动补齐
+opentelemetry-tracing-starter.jar
+org.osgi.service.component.jar
+org.osgi.util.promise.jar
+org.osgi.util.function.jar
+# R13 +10: 并入产品 nucleus packager 的全部 jar（内核闭包口径改为「nucleus packager + wiring 闭包」;
+#        含 deployment-admin/deployment-autodeploy——部署命令与自动部署服务属 nucleus 基座）
+deployment-admin.jar
+deployment-autodeploy.jar
+flashlight-extra-jdk-packages.jar
+glassfish-extra-jre-packages.jar
+glassfish-javassist-packages.jar
+gmbal.jar
+launcher.jar
+scattered-archive-api.jar
+simple-glassfish-api.jar

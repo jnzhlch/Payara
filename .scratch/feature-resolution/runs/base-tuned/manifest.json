@@ -1,0 +1,35 @@
+{
+  "label": "base-tuned",
+  "created": "2026-11-23T08:37:31+08:00",
+  "artifact": {
+    "zip": "/d/AIspace/Payara/appserver/distributions/payara-web/target/payara-web.zip",
+    "sha256": "a4703d6d0553416a30cf2a5bc0570f0920b2f98138fad61c3a0ae7e0cc2783cf"
+  },
+  "config": "tuned",
+  "java": "java version 21.0.12.1 2026-08-18 LTS",
+  "host": "DESKTOP-OMHP7KI",
+  "caliber": "start-cmd -> first HTTP response on :8080, median of rounds 2..N",
+  "config_diff": [
+    "hazelcast disabled (asadmin set-hazelcast-configuration --enabled=false)",
+    "removed jvm-options lines matching /flashlight-agent/ from domain.xml",
+    "removed modules/autostart/*gogo*.jar and *shell*.jar (4 debug bundles)"
+  ],
+  "tuned_at": "2026-11-23T08:37:58.890131",
+  "runs": [
+    {
+      "at": "2026-11-23T08:40:04.651819",
+      "rounds": 6,
+      "hot_median_ms": "5791"
+    },
+    {
+      "at": "2026-11-24T14:52:07.337313",
+      "rounds": 6,
+      "hot_median_ms": "1537"
+    },
+    {
+      "at": "2026-11-24T15:03:04.448387",
+      "rounds": 10,
+      "hot_median_ms": "7248"
+    }
+  ]
+}

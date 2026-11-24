@@ -1,0 +1,3 @@
+nucleus-jersey                   jars=23   缺失=0 
+---
+packagers=1, 生成清单=1, 根=nucleus-jersey
