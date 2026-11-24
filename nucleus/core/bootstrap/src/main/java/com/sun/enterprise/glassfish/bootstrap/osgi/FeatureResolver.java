@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -27,8 +29,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamReader;
 
 /**
  * 特性化启动解析器（一期）。
@@ -69,21 +73,24 @@ class FeatureResolver {
 
     /**
      * 若声明了任何 payara.feature.*，改写 props 中的安装/启动清单；否则原样返回。
-     * 声明来源双通道：props 键（域级 osgi.properties）与服务器 JVM 系统属性（domain.xml jvm-options）。
+     * 声明来源三通道合并：domain.xml 的 feature-manager 元素、props 键（域级 osgi.properties）、
+     * 服务器 JVM 系统属性（domain.xml jvm-options）。
      */
     static void applyTo(Properties props) {
-        Set<String> declared = collectDeclaredFeatures(props);
-        for (String name : collectDeclaredFeatures(System.getProperties())) {
-            declared.add(name);
+        Set<String> declared = new LinkedHashSet<>();
+        File domainDir = dirFromUri(props.getProperty(
+                com.sun.enterprise.glassfish.bootstrap.Constants.INSTANCE_ROOT_URI_PROP_NAME));
+        if (domainDir != null) {
+            declared.addAll(declaredFromDomainXml(new File(domainDir, "config/domain.xml")));
         }
+        declared.addAll(collectDeclaredFeatures(props));
+        declared.addAll(collectDeclaredFeatures(System.getProperties()));
         if (declared.isEmpty()) {
             return; // 未声明特性：维持现状（全量安装）
         }
 
         File installDir = dirFromUri(props.getProperty(
                 com.sun.enterprise.glassfish.bootstrap.Constants.INSTALL_ROOT_URI_PROP_NAME));
-        File domainDir = dirFromUri(props.getProperty(
-                com.sun.enterprise.glassfish.bootstrap.Constants.INSTANCE_ROOT_URI_PROP_NAME));
 
         Map<String, Properties> manifests = loadManifests(installDir, domainDir);
 
@@ -136,6 +143,61 @@ class FeatureResolver {
                     && Boolean.parseBoolean(props.getProperty(key))) {
                 declared.add(key.substring(FEATURE_PROP_PREFIX.length()));
             }
+        }
+        return declared;
+    }
+
+    /**
+     * 从 domain.xml 读取目标实例的 {@code <feature-manager features="..."/>} 声明。
+     * 自带 StAX 解析（habitat 未建立，config bean 不可用）；目标实例默认 DAS 的
+     * {@code server}（com.sun.aas.instanceName 在此阶段尚未设置）。
+     */
+    private static Set<String> declaredFromDomainXml(File domainXml) {
+        Set<String> declared = new LinkedHashSet<>();
+        if (!domainXml.isFile()) {
+            return declared;
+        }
+        String instance = System.getProperty("com.sun.aas.instanceName", "server");
+        try (InputStream in = new FileInputStream(domainXml)) {
+            XMLStreamReader r = XMLInputFactory.newInstance().createXMLStreamReader(in);
+            int depth = 0;
+            int serverDepth = -1;
+            int fmDepth = -1;
+            boolean inTargetServer = false;
+            while (r.hasNext()) {
+                int ev = r.next();
+                if (ev == XMLStreamConstants.START_ELEMENT) {
+                    depth++;
+                    String local = r.getLocalName();
+                    if (local.equals("server") && serverDepth == -1) {
+                        serverDepth = depth;
+                        inTargetServer = instance.equals(r.getAttributeValue(null, "name"));
+                    } else if (inTargetServer && local.equals("feature-manager")) {
+                        fmDepth = depth;
+                        String features = r.getAttributeValue(null, "features");
+                        if (features != null) {
+                            for (String f : features.split("[,\\s]+")) {
+                                if (!f.isEmpty()) {
+                                    declared.add(f);
+                                }
+                            }
+                        }
+                    }
+                } else if (ev == XMLStreamConstants.END_ELEMENT) {
+                    if (fmDepth == depth) {
+                        fmDepth = -1;
+                    } else if (serverDepth == depth) {
+                        serverDepth = -1;
+                        inTargetServer = false;
+                    }
+                    depth--;
+                }
+            }
+            r.close();
+        } catch (Exception e) {
+            // domain.xml 缺失或不可解析时按无声明处理（保持全量装载），不做 fail-fast
+            Logger.getLogger(FeatureResolver.class.getName()).log(Level.FINE,
+                    "读取 domain.xml 特性声明失败, 按无声明处理: " + domainXml, e);
         }
         return declared;
     }

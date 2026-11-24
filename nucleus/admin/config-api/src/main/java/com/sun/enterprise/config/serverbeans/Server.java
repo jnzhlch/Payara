@@ -236,6 +236,14 @@ public interface Server extends ConfigBeanProxy, PropertyBag, Named, SystemPrope
     @Override
     List<Property> getProperty();
 
+    /**
+     * 特性化启动声明 (feature-resolution, 见 docs/adr/0001): 该实例装配的特性,
+     * 逗号分隔 (如 {@code web,admin-rest})。由启动早期的 FeatureResolver 读取;
+     * 未设置时全量装载, 行为与原版一致。
+     */
+    @Element
+    FeatureManager getFeatureManager();
+
     @DuckTyped
     @Override
     String getReference();
