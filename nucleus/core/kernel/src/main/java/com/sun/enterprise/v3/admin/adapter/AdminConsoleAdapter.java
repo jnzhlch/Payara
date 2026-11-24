@@ -77,6 +77,7 @@ import org.glassfish.grizzly.http.server.Request;
 import org.glassfish.grizzly.http.server.Response;
 import org.glassfish.hk2.api.PostConstruct;
 import org.glassfish.hk2.api.ServiceLocator;
+import com.sun.enterprise.module.ModulesRegistry;
 import org.glassfish.internal.data.ApplicationRegistry;
 import org.glassfish.kernel.KernelLoggerInfo;
 import org.glassfish.server.ServerEnvironmentImpl;
@@ -286,7 +287,13 @@ public final class AdminConsoleAdapter extends HttpHandler implements Adapter, P
 			// likely, but possible)
 			handleLoadedState();
 		    }else {
-                        loadConsole();
+                        // 特性化裁剪域 (feature-resolution): 控制台模块未安装时不再尝试安装,
+                        // 否则 InstallerThread 会在缺失 admingui 模块的 habitat 上失败并污染日志
+                        if (consoleInstallable()) {
+                            loadConsole();
+                        } else {
+                            setStateMsg(AdapterState.APPLICATION_NOT_INSTALLED);
+                        }
 			sendStatusPage(req, res);
 		    }
 		}
@@ -294,6 +301,24 @@ public final class AdminConsoleAdapter extends HttpHandler implements Adapter, P
 
         }
 
+    }
+
+    /**
+     * 控制台是否具备安装条件: 域配置里有登记、安装包就绪, 或 admingui 模块仍在
+     * 模块注册表中（全量发行版恒真; 特性化裁剪域未声明 gui 特性时为假, 跳过安装线程）。
+     */
+    private boolean consoleInstallable() {
+        if (appExistsInConfig()) {
+            return true;
+        }
+        if (warFile.exists() || new File(warFile.getParentFile(), ADMIN_APP_NAME).exists()) {
+            return true;
+        }
+        ModulesRegistry mr = habitat.getService(ModulesRegistry.class);
+        if (mr == null) {
+            return true; // 判断不了时保持原行为
+        }
+        return !mr.getModules("fish.payara.server.internal.admingui.console-common").isEmpty();
     }
 
     void loadConsole() {
