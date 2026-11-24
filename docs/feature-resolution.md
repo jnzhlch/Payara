@@ -129,7 +129,7 @@ feature.bundles=web-core.jar,web-glue.jar,...   ← 本特性的模块 jar 名�
 
 ## 9. 已知限制与待办
 
-1. **GUI 控制台未纳入**：`__admingui` 是 system-application 且其 war 由安装器按需部署；声明裁剪域下该链路会因缺 admingui 模块报 ResolveError（不影响 CLI/REST 管理，但控制台页面不可用）。待办：`gui` 特性 + InstallerThread 在无 gui 声明时短路
+1. **GUI 控制台未完整纳入**：CLI/REST 管理不受影响；4848 网页会返回「控制台未安装」状态页（内核已修复：控制台模块缺失时**不再尝试安装**，提交 `0aba6d3895`）。完整启用 GUI 需 `gui` 特性（草稿清单已有，未验证）+ 恢复 `__admingui` war 与 system-app 登记 + console 插件链补齐——待后续 census 式迭代
 2. **部分特性清单未 boot 验证**（§4 草稿清单）：每个特性启用前需 census 式迭代验证（方法与工具齐备，每个约 30-60 分钟）
 3. **bcel/ldapbp 类 JDK/发行版缺口**：`bcel.jar`（无 commons-io 提供者）与 `ldapbp-repackaged.jar`（JDK 17+ 无 java.security.acl）在发行版中本就不可解析，清单已剔除，引用它们的组件走可选依赖路径
 4. **启动时间收益数字待 Linux 测试机**：Windows 桌面机双峰噪声（同配置漂移 4.7 倍）无法分辨启动差异（A/B/A 实测记录见 PLAN.md）；结构收益（安装面 -37%）已实锤
