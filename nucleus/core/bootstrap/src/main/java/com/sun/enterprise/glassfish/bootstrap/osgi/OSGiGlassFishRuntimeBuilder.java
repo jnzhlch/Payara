@@ -124,6 +124,9 @@ public final class OSGiGlassFishRuntimeBuilder implements RuntimeBuilder {
             // Set the builder name so that when we check for nonEmbedded() inside GlassFishMainActivator,
             // we can identify the environment.
             properties.setProperty(Constants.BUILDER_NAME_PROPERTY, getClass().getName());
+            // Feature resolution (ADR 0001): rewrites auto-install/auto-start lists
+            // when any payara.feature.* property is declared; no-op otherwise.
+            FeatureResolver.applyTo(properties);
             // Step 0: Locate and launch a framework
             long t0 = System.currentTimeMillis();
             fwLauncher = new OSGiFrameworkLauncher(properties);
