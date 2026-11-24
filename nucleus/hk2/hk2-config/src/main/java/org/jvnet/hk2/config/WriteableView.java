@@ -37,7 +37,7 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
-// Portions Copyright [2019-2024] [Payara Foundation and/or affiliates]
+// Portions Copyright [2019-2026] [Payara Foundation and/or affiliates]
 
 package org.jvnet.hk2.config;
 
@@ -46,6 +46,7 @@ import org.jvnet.hk2.config.ConfigModel.Property;
 
 import jakarta.validation.*;
 import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.spi.ValidationProvider;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyVetoException;
 import java.lang.annotation.ElementType;
@@ -92,6 +93,7 @@ public class WriteableView implements InvocationHandler, Transactor, ConfigView 
             });
 
        try (ValidatorFactory validatorFactory = Validation.byDefaultProvider()
+               .providerResolver(HK2ValidationProviderResolver.INSTANCE)
                .configure().messageInterpolator(new ParameterMessageInterpolator())
                .buildValidatorFactory()) {
            Thread.currentThread().setContextClassLoader(org.hibernate.validator.HibernateValidator.class.getClassLoader());
@@ -101,6 +103,23 @@ public class WriteableView implements InvocationHandler, Transactor, ConfigView 
        } finally {
            Thread.currentThread().setContextClassLoader(cl);
        }
+    }
+
+    /**
+     * Resolves the Bean Validation provider explicitly instead of through the thread context
+     * class loader. Grizzly worker threads carry an OSGi bundle class loader as TCCL, under
+     * which {@link ServiceLoader} finds no provider; relying on the TCCL made the initialization
+     * of this class depend on which thread happened to create the first write view.
+     * Mirrors HibernateValidationProviderResolver in the kernel.
+     */
+    private static final class HK2ValidationProviderResolver implements ValidationProviderResolver {
+        private static final HK2ValidationProviderResolver INSTANCE = new HK2ValidationProviderResolver();
+
+        @Override
+        public List<ValidationProvider<?>> getValidationProviders() {
+            return Collections.<ValidationProvider<?>>singletonList(
+                    new org.hibernate.validator.HibernateValidator());
+        }
     }
 
     // private final Validator beanValidator;
