@@ -34,14 +34,15 @@ asadmin deploy myapp.war
 
 **头号注意: 声明了 `web` 就必须同时声明 `admin-rest`**（headless 域也不例外）——管理 REST 服务端（`rest-service.jar`）是可裁剪特性，不声明则 4848 端口虽然监听，但所有管理命令（包括 `deploy`、`stop-domain`）会得到 202 + 控制台 HTML。
 
-## 3. 声明方式（两种载体等价）
+## 3. 声明方式（三种载体等价，可叠加）
 
 | 载体 | 写法 | 适用 |
 |---|---|---|
-| **JVM 系统属性** | `domain.xml` 的 `<jvm-options>-Dpayara.feature.web=true</jvm-options>` | 推荐，asadmin create-jvm-options 可管理 |
+| **domain.xml 元素**（推荐） | `<server name="server">` 下加 `<feature-manager features="web,admin-rest"/>` | 声明随域配置持久化，asadmin set 可管理 |
+| **JVM 系统属性** | `domain.xml` 的 `<jvm-options>-Dpayara.feature.web=true</jvm-options>` | 临时实验/覆盖 |
 | **域级 osgi.properties** | `<domainDir>/config/osgi.properties` 里加一行 `payara.feature.web=true` | 批量脚本/容器镜像场景 |
 
-两者可混用。值的语义：`true` 生效，其它值视为未声明。
+三者取并集。值语义：`true` 生效，其它值视为未声明。`feature-manager` 元素默认作用于 DAS 实例 `server`（解析发生在 habitat 建立前，此时实例名尚未注入；多实例部署暂用 -D 通道指定）。
 
 ## 4. 内置特性清单
 
@@ -122,6 +123,7 @@ feature.bundles=web-core.jar,web-glue.jar,...   ← 本特性的模块 jar 名�
 |---|---|
 | `8fb79dc9c6` | FeatureResolver + 挂载点 + 内核闭包资源 |
 | `b2c3a68f05` | `WriteableView` 的 Bean Validation 提供者显式解析（原实现依赖 TCCL 的 ServiceLoader；Grizzly 工作线程 TCCL=bundle 加载器导致找不到提供者——**裁剪域必现**，全量发行版靠启动线程先初始化的顺序侥幸） |
+| `c35ca697c3` | `feature-manager` 域元素（config-api bean + 解析器 StAX 读取，二期声明载体） |
 
 **为什么 habitat 不需要运行时扩展**：现有启动时序是「先装 bundle → 后建 habitat」，安装前裁剪即收缩 habitat。运行中动态加特性需要自写 bundle extender（`HK2Populator.populate` API 现成），为二期。
 
