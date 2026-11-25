@@ -89,7 +89,6 @@ jsr107-repackaged.jar
 jta.jar
 kernel.jar
 launcher.jar
-ldapbp-repackaged.jar
 logging.jar
 management-api.jar
 microprofile-config-api.jar

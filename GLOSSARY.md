@@ -38,3 +38,12 @@ _Avoid_: 启动范围、加载范围（三义模糊）
 
 ## 配置最优基线 (Tuned-Config Baseline)
 复现既有配置层优化（Hazelcast disabled、去 flashlight-agent、裁 autostart 调试 bundle）后的基线，作为一切增量实验的归因参照。AppCDS 与 direct 启动排除在外（分别与类加载纠缠、属口径问题）。
+
+## 运行时特性装配 (Runtime Feature Provisioning)
+服务器运行中装配新特性：解析先行预检通过后，对运行框架安装增量 bundle 集并把其描述符补进 habitat；成功即写回特性声明。仅 add——移除一律改声明后重启生效（见 ADR 0002）。
+
+## 解析先行预检 (Resolve-first Pre-flight)
+装配前在临时 Felix 上按真实顺序解析新特性并集，通过才触碰运行框架；失败零接触并报缺失清单。解析先行的精神承自 Liberty（见 ADR 0002）。
+
+## 增量闭包 (Delta Closure)
+运行时装配实际需要安装的 bundle 集：目标特性闭包 ∪ 内核闭包 减去 当前已装配集合。

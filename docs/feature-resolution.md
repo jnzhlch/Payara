@@ -75,6 +75,23 @@ feature.bundles=web-core.jar,web-glue.jar,...   ← 本特性的模块 jar 名�
 - **诊断日志**：解析结果有一条 INFO 日志（声明/闭包/总数），搜 `特性解析`
 - **解析器源码**：`nucleus/core/bootstrap/.../osgi/FeatureResolver.java`（提交 `8fb79dc9c6`）
 
+### 5.1 运行时装配（不重启加特性）
+
+```bash
+payara-add-feature jpa                 # 预检 → 装配 → 写回声明（重启一致）
+payara-add-feature --dryrun jpa        # 只预检不动框架
+```
+
+- **解析先行预检**：新特性并集先在临时 Felix 里纯解析（`FrameworkWiring.resolveBundles`，零激活秒级），通过才触碰运行框架；失败零接触并报缺失清单
+- **装配**：两阶段——先全部 install 再统一 start（清单内依赖顺序无关）；fragment bundle 随宿主解析，跳过 start
+- **habitat 补装**：bundle RESOLVED 事件经 ModulesRegistry 联动自动把描述符补进 boot habitat（内核既有机制，无自写 extender）
+- **持久化**：装配成功即写回 `<feature-manager features="..."/>`，重启后按新声明装配——运行时状态与声明恒等
+- **幂等**：重复装配已装特性 = 无害 no-op
+- **移除**：运行时不卸载；修改声明后重启生效
+- **服务活化**：新特性服务按 HK2 懒实例化（首次查找时创建）；不要用 `proceedTo(10)` 触发（会 DOWN 掉高层服务）
+
+实现: `nucleus/core/kernel/.../admin/feature/FeatureProvisioner.java` + `PayaraAddFeatureCommand.java`
+
 ## 6. 运维须知（踩过坑的都在这）
 
 | 症状 | 原因 | 处置 |

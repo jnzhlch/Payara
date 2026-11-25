@@ -244,6 +244,8 @@ public interface Server extends ConfigBeanProxy, PropertyBag, Named, SystemPrope
     @Element
     FeatureManager getFeatureManager();
 
+    void setFeatureManager(FeatureManager manager);
+
     @DuckTyped
     @Override
     String getReference();
